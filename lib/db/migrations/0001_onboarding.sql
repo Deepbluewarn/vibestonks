@@ -1,0 +1,1 @@
+ALTER TABLE `traders` ADD `onboarded_at` integer;

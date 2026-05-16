@@ -1,0 +1,164 @@
+import { auth } from "@/auth";
+import {
+  getCurrentTickersWithHistory,
+  getLeaderboard,
+  getMyState,
+} from "@/lib/queries";
+import { LiveUpdater } from "./live-updater";
+import { TradeBoard } from "./trade-board";
+
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  const session = await auth();
+  const traderId = session?.user?.traderId;
+  if (!traderId) return null;
+
+  const tickers = getCurrentTickersWithHistory();
+  const myState = getMyState(traderId);
+  const leaderboard = getLeaderboard(traderId);
+
+  if (!myState) {
+    return (
+      <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-6 text-yellow-800 dark:border-yellow-800/50 dark:bg-yellow-900/30 dark:text-yellow-200">
+        활성 주차가 없습니다. 관리자가 <code>npm run cycle:reset</code>으로 새
+        주차를 시작해야 거래가 가능합니다.
+      </div>
+    );
+  }
+
+  const salaryThisMonth = isSalaryThisMonth(session.user.lastSalaryAt ?? null);
+  const justCredited = session.user.salaryJustCredited === true;
+
+  return (
+    <div className="space-y-8">
+      <LiveUpdater />
+      {justCredited && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
+          💰 <span className="font-semibold">이번 달 월급 1,000pt</span>가 잔고에
+          입금되었습니다.
+        </div>
+      )}
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
+            vibestonks
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            매주 1,000pt · 금요일 17시 청산 · 월요일 09시 리셋
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            현금 잔고
+          </p>
+          <p className="text-3xl font-semibold tabular-nums text-gray-900 dark:text-gray-50">
+            {myState.balance}
+            <span className="ml-1 text-base text-gray-400 dark:text-gray-500">
+              pt
+            </span>
+          </p>
+          <WeekReturn portfolioValue={myState.portfolioValue} />
+          {salaryThisMonth && !justCredited && (
+            <p className="mt-1 text-[10px] text-gray-400 dark:text-gray-500">
+              💰 이번 달 월급 입금 완료
+            </p>
+          )}
+        </div>
+      </header>
+
+      <TradeBoard
+        tickers={tickers}
+        holdings={myState.holdings}
+        balance={myState.balance}
+      />
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-gray-700 dark:text-gray-300">
+          이번 주 상위
+        </h2>
+        <div className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
+          {leaderboard.top3.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500">
+              아직 데이터 없음
+            </p>
+          ) : (
+            leaderboard.top3.map((e) => (
+              <div
+                key={e.rank}
+                className="flex items-center justify-between px-4 py-2 text-sm"
+              >
+                <span className="flex items-center gap-3">
+                  <span className="w-6 text-center font-bold text-gray-400 dark:text-gray-500">
+                    {e.rank}
+                  </span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {e.displayName}
+                  </span>
+                </span>
+                <span className="tabular-nums text-gray-700 dark:text-gray-300">
+                  {e.points}pt
+                </span>
+              </div>
+            ))
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-gray-50 px-4 py-2 text-xs text-gray-500 dark:bg-gray-900/50 dark:text-gray-400">
+            <span>
+              내 등수:{" "}
+              <span className="font-medium text-gray-800 dark:text-gray-200">
+                {leaderboard.myRank
+                  ? `${leaderboard.myRank} / ${leaderboard.totalTraders}`
+                  : "—"}
+              </span>
+            </span>
+            {leaderboard.gapToNext !== null && (
+              <span className="tabular-nums">
+                바로 위까지 -{leaderboard.gapToNext}pt
+                {leaderboard.gapToTop !== null &&
+                  leaderboard.gapToTop !== leaderboard.gapToNext && (
+                    <span className="ml-2 text-gray-400 dark:text-gray-500">
+                      · 1위까지 -{leaderboard.gapToTop}pt
+                    </span>
+                  )}
+              </span>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+        가짜 주식 시뮬레이션 · 실제 자산과 무관
+      </p>
+    </div>
+  );
+}
+
+function isSalaryThisMonth(iso: string | null): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  const now = new Date();
+  return (
+    d.getUTCFullYear() === now.getUTCFullYear() &&
+    d.getUTCMonth() === now.getUTCMonth()
+  );
+}
+
+function WeekReturn({ portfolioValue }: { portfolioValue: number }) {
+  const SEED = 1000;
+  const delta = portfolioValue - SEED;
+  const pct = (delta / SEED) * 100;
+  const color =
+    delta > 0
+      ? "text-emerald-600 dark:text-emerald-400"
+      : delta < 0
+        ? "text-rose-600 dark:text-rose-400"
+        : "text-gray-400 dark:text-gray-500";
+  const arrow = delta > 0 ? "▲" : delta < 0 ? "▼" : "·";
+  return (
+    <p className={`mt-0.5 text-xs font-medium tabular-nums ${color}`}>
+      {arrow} 이번 주 {delta >= 0 ? "+" : ""}
+      {delta}pt ({pct >= 0 ? "+" : ""}
+      {pct.toFixed(1)}%)
+    </p>
+  );
+}
