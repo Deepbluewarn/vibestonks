@@ -15,13 +15,21 @@
 
 set -euo pipefail
 
-BRANCH="${BRANCH:-main}"
-SERVICE_RESTART="${SERVICE_RESTART:-systemctl restart vibestonks}"
-DB_PATH="${VIBESTONKS_DB_PATH:-./.data/db.sqlite}"
-
 step() { echo ""; echo "→ $*"; }
 
 cd "$(dirname "$0")"
+
+# systemd가 쓰는 EnvironmentFile이 있으면 VIBESTONKS_DB_PATH 등을 가져온다
+# (대화형 셸에서 deploy.sh 직접 실행 시에도 같은 경로 쓰기 위해)
+if [ -f /etc/vibestonks.env ]; then
+  set -a
+  . /etc/vibestonks.env
+  set +a
+fi
+
+BRANCH="${BRANCH:-main}"
+SERVICE_RESTART="${SERVICE_RESTART:-systemctl restart vibestonks}"
+DB_PATH="${VIBESTONKS_DB_PATH:-./.data/db.sqlite}"
 
 if [ "${SKIP_PULL:-0}" != "1" ]; then
   step "[1/5] Pulling latest from $BRANCH"
@@ -32,13 +40,14 @@ fi
 step "[2/5] Installing dependencies"
 npm ci
 
+step "[3/5] Applying DB migrations"
+# drizzle-kit이 DB 파일은 만들어주지만 부모 디렉토리는 만들지 않음 — 미리 보장
+mkdir -p "$(dirname "$DB_PATH")"
 if [ -f "$DB_PATH" ]; then
   BACKUP="${DB_PATH}.bak-$(date +%Y%m%d-%H%M%S)"
   cp "$DB_PATH" "$BACKUP"
   echo "  ↳ DB backed up: $BACKUP"
 fi
-
-step "[3/5] Applying DB migrations"
 npm run db:migrate
 
 step "[4/5] Building Next.js"
