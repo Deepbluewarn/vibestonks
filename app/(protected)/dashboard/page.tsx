@@ -132,9 +132,6 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <p className="text-center text-xs text-gray-400 dark:text-gray-500">
-        가짜 주식 시뮬레이션 · 실제 자산과 무관
-      </p>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { UserMenu } from "@/components/auth/user-menu";
+import { Footer } from "@/components/footer";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 export default async function ProtectedLayout({
@@ -31,6 +32,7 @@ export default async function ProtectedLayout({
       </header>
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {children}
+        <Footer />
       </main>
     </div>
   );
