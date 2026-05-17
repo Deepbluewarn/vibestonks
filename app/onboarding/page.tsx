@@ -26,6 +26,31 @@ export default async function OnboardingPage() {
           </p>
         </div>
 
+        {!isEdit && (
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 px-4 py-3 text-xs leading-relaxed text-gray-700 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-gray-300">
+            <p className="mb-1.5 font-semibold text-indigo-700 dark:text-indigo-300">
+              어떻게 노나?
+            </p>
+            <ul className="list-inside list-disc space-y-1">
+              <li>
+                <b>1,000pt</b>로 시작해 5종목을 사고 팝니다
+              </li>
+              <li>
+                가격은 매수·매도로 움직임 — <b>다른 트레이더가 끼어들어야 차익</b>
+              </li>
+              <li>
+                운영자가 라운드 마감하면 보유 주식이 <b>마감가로 자동 청산</b>
+              </li>
+              <li>
+                매월 1일 첫 로그인 시 <b>+1,000pt 월급</b> 자동 입금
+              </li>
+              <li>
+                다른 트레이더 포지션은 비공개. 종목 가격과 상위 3명 랭킹만 공개
+              </li>
+            </ul>
+          </div>
+        )}
+
         <OnboardingForm initialNickname={initial} isEdit={isEdit} />
 
         {isEdit && (

@@ -1,10 +1,12 @@
 import { auth } from "@/auth";
 import {
+  getActiveWeek,
   getCurrentTickersWithHistory,
   getLeaderboard,
   getMyState,
 } from "@/lib/queries";
 import { LiveUpdater } from "./live-updater";
+import { RoundStatus } from "./round-status";
 import { TradeBoard } from "./trade-board";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +19,7 @@ export default async function DashboardPage() {
   const tickers = getCurrentTickersWithHistory();
   const myState = getMyState(traderId);
   const leaderboard = getLeaderboard(traderId);
+  const activeWeek = getActiveWeek();
 
   if (!myState) {
     return (
@@ -44,9 +47,12 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
             vibestonks
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            매주 1,000pt · 금요일 17시 청산 · 월요일 09시 리셋
-          </p>
+          {activeWeek && (
+            <RoundStatus
+              roundId={activeWeek.id}
+              startedAtMs={activeWeek.startedAt.getTime()}
+            />
+          )}
         </div>
         <div className="text-right">
           <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
