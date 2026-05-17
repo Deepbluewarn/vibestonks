@@ -1,10 +1,29 @@
 import { auth } from "@/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { TradeError, executeTrade, type TradeSide } from "@/lib/trade";
+
+const TRADE_RATE = { windowMs: 10_000, max: 15 };
 
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.traderId) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const rl = checkRateLimit(`trade:${session.user.traderId}`, TRADE_RATE);
+  if (!rl.ok) {
+    return Response.json(
+      {
+        error: "rate_limited",
+        message: `너무 빠른 거래 — ${Math.ceil((rl.retryAfterMs ?? 0) / 1000)}초 후 재시도`,
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil((rl.retryAfterMs ?? 0) / 1000)),
+        },
+      },
+    );
   }
 
   let body: { tickerId?: number; shares?: number; side?: TradeSide };

@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { TradeError, executeTrade, type TradeSide } from "@/lib/trade";
+
+// 트레이더당 10초에 15회까지 허용 (사람이 쾌속 클릭해도 안 걸릴 수준,
+// 봇이 자동화하면 즉시 차단). 멀티 인스턴스 가면 Redis 기반으로 교체.
+const TRADE_RATE = { windowMs: 10_000, max: 15 };
 
 export type TradeActionResult =
   | {
@@ -25,6 +30,16 @@ export async function tradeAction(
   if (!Number.isInteger(tickerId) || !Number.isInteger(shares) || shares <= 0) {
     return { ok: false, error: "잘못된 입력" };
   }
+
+  const rl = checkRateLimit(`trade:${session.user.traderId}`, TRADE_RATE);
+  if (!rl.ok) {
+    const secs = Math.ceil((rl.retryAfterMs ?? 0) / 1000);
+    return {
+      ok: false,
+      error: `너무 빠른 거래 — ${secs}초 후 다시 시도하세요`,
+    };
+  }
+
   try {
     const r = executeTrade({
       traderId: session.user.traderId,

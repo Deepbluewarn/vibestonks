@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { PricePoint } from "@/lib/queries";
 
 interface SparklineProps {
@@ -8,14 +8,14 @@ interface SparklineProps {
   width?: number;
   height?: number;
   className?: string;
-  /** true 시 거래 시점마다 hover 가능한 점 + 툴팁 */
+  /** true 시 거래 시점마다 hover/tap 가능한 점 + 툴팁 */
   interactive?: boolean;
 }
 
 /**
  * 차트 경로는 SVG로 그리되 점/펄스/툴팁은 HTML로 오버레이.
- * SVG preserveAspectRatio="none"이 시각요소를 늘리지 못하게 분리 — 컨테이너 비율과
- * 상관없이 점은 항상 동그라미.
+ * 데스크탑: hover로 툴팁 미리보기. 터치 환경: 점을 탭하면 툴팁이 고정,
+ * 다른 곳 탭하거나 ESC로 닫힘.
  */
 export function Sparkline({
   points,
@@ -25,7 +25,29 @@ export function Sparkline({
   interactive = false,
 }: SparklineProps) {
   const id = useId();
+  const containerRef = useRef<HTMLDivElement>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [stuckIdx, setStuckIdx] = useState<number | null>(null);
+  const activeIdx = stuckIdx ?? hoverIdx;
+
+  // 터치/마우스로 외부를 누르면 stuck 해제 + Escape도 지원
+  useEffect(() => {
+    if (stuckIdx === null) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) {
+        setStuckIdx(null);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setStuckIdx(null);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [stuckIdx]);
 
   const view = useMemo(() => buildView(points, width, height), [
     points,
@@ -58,9 +80,11 @@ export function Sparkline({
 
   const { linePath, areaPath, stroke, lastPct, dotPcts } = view;
   const gradId = `spark-grad-${id}`;
+  const activeDot =
+    activeIdx !== null ? dotPcts.find((d) => d.idx === activeIdx) : null;
 
   return (
-    <div className={`relative ${className}`}>
+    <div ref={containerRef} className={`relative ${className}`}>
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="h-full w-full"
@@ -107,12 +131,21 @@ export function Sparkline({
             key={d.idx}
             type="button"
             aria-label={`${d.side === "buy" ? "매수" : "매도"} ${d.shares}주, ${d.price}pt`}
-            onMouseEnter={() => setHoverIdx(d.idx)}
-            onMouseLeave={() => setHoverIdx((cur) => (cur === d.idx ? null : cur))}
+            onPointerEnter={(e) => {
+              if (e.pointerType === "mouse") setHoverIdx(d.idx);
+            }}
+            onPointerLeave={(e) => {
+              if (e.pointerType === "mouse") {
+                setHoverIdx((cur) => (cur === d.idx ? null : cur));
+              }
+            }}
+            onClick={() => {
+              setStuckIdx((cur) => (cur === d.idx ? null : d.idx));
+            }}
             onFocus={() => setHoverIdx(d.idx)}
             onBlur={() => setHoverIdx((cur) => (cur === d.idx ? null : cur))}
             className={`absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 border-white outline-none transition-transform focus-visible:ring-2 focus-visible:ring-indigo-300 hover:scale-125 dark:border-gray-900 ${
-              hoverIdx === d.idx ? "scale-125" : ""
+              activeIdx === d.idx ? "scale-125" : ""
             }`}
             style={{
               left: `${d.x}%`,
@@ -122,53 +155,38 @@ export function Sparkline({
           />
         ))}
 
-      {/* 툴팁 (HTML, 완벽 라운드 + tailwind 다크) */}
-      {interactive && hoverIdx !== null && dotPcts[lookupDotIdx(dotPcts, hoverIdx)] && (() => {
-        const dot = dotPcts.find((d) => d.idx === hoverIdx);
-        if (!dot) return null;
-        const isLeft = dot.x < 50;
-        const isTop = dot.y < 50;
-        return (
-          <div
-            className="pointer-events-none absolute z-10 min-w-[110px] rounded-md border border-white/10 bg-gray-900/95 px-2.5 py-1.5 text-[11px] shadow-lg backdrop-blur dark:border-white/5"
-            style={{
-              left: `${dot.x}%`,
-              top: `${dot.y}%`,
-              transform: `translate(${isLeft ? "8px" : "calc(-100% - 8px)"}, ${
-                isTop ? "8px" : "calc(-100% - 8px)"
-              })`,
-            }}
-          >
-            <p className="font-semibold leading-tight">
-              <span
-                className={
-                  dot.side === "buy"
-                    ? "text-emerald-400"
-                    : "text-rose-400"
-                }
-              >
-                {dot.side === "buy" ? "매수" : "매도"}
-              </span>
-              <span className="text-white">
-                {" "}
-                {dot.shares}주 · {dot.price}pt
-              </span>
-            </p>
-            <p className="leading-tight text-white/55">
-              {formatHM(dot.t)}
-            </p>
-          </div>
-        );
-      })()}
+      {/* 툴팁 */}
+      {interactive && activeDot && (
+        <div
+          className="pointer-events-none absolute z-10 min-w-[110px] rounded-md border border-white/10 bg-gray-900/95 px-2.5 py-1.5 text-[11px] shadow-lg backdrop-blur dark:border-white/5"
+          style={{
+            left: `${activeDot.x}%`,
+            top: `${activeDot.y}%`,
+            transform: `translate(${activeDot.x < 50 ? "8px" : "calc(-100% - 8px)"}, ${
+              activeDot.y < 50 ? "8px" : "calc(-100% - 8px)"
+            })`,
+          }}
+        >
+          <p className="font-semibold leading-tight">
+            <span
+              className={
+                activeDot.side === "buy" ? "text-emerald-400" : "text-rose-400"
+              }
+            >
+              {activeDot.side === "buy" ? "매수" : "매도"}
+            </span>
+            <span className="text-white">
+              {" "}
+              {activeDot.shares}주 · {activeDot.price}pt
+            </span>
+          </p>
+          <p className="leading-tight text-white/55">
+            {formatHM(activeDot.t)}
+          </p>
+        </div>
+      )}
     </div>
   );
-}
-
-function lookupDotIdx(
-  dots: { idx: number }[],
-  hoverIdx: number,
-): number {
-  return dots.findIndex((d) => d.idx === hoverIdx);
 }
 
 function formatHM(ts: number): string {
@@ -225,7 +243,6 @@ function buildView(points: PricePoint[], width: number, height: number) {
   const stroke =
     change > 0 ? "#059669" : change < 0 ? "#e11d48" : "#94a3b8";
 
-  // viewBox 좌표를 컨테이너 % 좌표로 변환 (HTML 오버레이용)
   const toPct = (xy: { x: number; y: number }) => ({
     x: (xy.x / width) * 100,
     y: (xy.y / height) * 100,

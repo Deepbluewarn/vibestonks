@@ -44,9 +44,21 @@ step "[3/5] Applying DB migrations"
 # drizzle-kit이 DB 파일은 만들어주지만 부모 디렉토리는 만들지 않음 — 미리 보장
 mkdir -p "$(dirname "$DB_PATH")"
 if [ -f "$DB_PATH" ]; then
-  BACKUP="${DB_PATH}.bak-$(date +%Y%m%d-%H%M%S)"
-  cp "$DB_PATH" "$BACKUP"
+  BACKUP="${DB_PATH}.bak-$(date +%Y%m%d-%H%M%S).gz"
+  gzip -c "$DB_PATH" > "$BACKUP"
   echo "  ↳ DB backed up: $BACKUP"
+
+  # 최근 N개만 유지, 나머지 삭제
+  KEEP="${BACKUP_KEEP:-10}"
+  DB_DIR=$(dirname "$DB_PATH")
+  DB_NAME=$(basename "$DB_PATH")
+  # shellcheck disable=SC2012
+  ls -1t "$DB_DIR/$DB_NAME".bak-*.gz 2>/dev/null | tail -n +$((KEEP + 1)) | while read -r old; do
+    rm -f "$old"
+    echo "  ↳ Pruned: $old"
+  done
+  # 압축 안 된 옛 백업(.bak-*) 정리
+  rm -f "$DB_DIR/$DB_NAME".bak-[0-9]*[0-9]
 fi
 npm run db:migrate
 
