@@ -78,7 +78,7 @@ export default async function TickerDetailPage({
         </h2>
         <TickerActions
           tickerId={detail.id}
-          price={detail.price}
+          outstandingShares={detail.outstandingShares}
           balance={balance}
           myShares={detail.myShares}
         />

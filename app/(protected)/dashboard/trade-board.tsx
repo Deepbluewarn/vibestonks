@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { tradeAction } from "@/lib/actions/trade";
+import { buyCost, sellReceipt } from "@/lib/bonding-curve";
 import type { HoldingView, TickerWithHistory } from "@/lib/queries";
 import { Toast } from "@/components/toast";
 import { Sparkline } from "./sparkline";
@@ -73,6 +74,9 @@ function TickerCard({
   pending: boolean;
   onTrade: (tickerId: number, side: "buy" | "sell", shares: number) => void;
 }) {
+  const [qty, setQty] = useState(1);
+  const safeQty = Number.isFinite(qty) && qty > 0 ? Math.floor(qty) : 0;
+
   const change = ticker.price - 100;
   const pct = change === 0 ? 0 : (change / 100) * 100;
   const trend =
@@ -81,6 +85,15 @@ function TickerCard({
       : change < 0
         ? { color: "text-rose-600 dark:text-rose-400", arrow: "▼" }
         : { color: "text-gray-400 dark:text-gray-500", arrow: "·" };
+
+  const buyAmount =
+    safeQty > 0 ? buyCost(ticker.outstandingShares, safeQty) : 0;
+  const sellAmount =
+    safeQty > 0 && safeQty <= ticker.outstandingShares
+      ? sellReceipt(ticker.outstandingShares, safeQty)
+      : 0;
+  const canBuy = safeQty > 0 && balance >= buyAmount;
+  const canSell = safeQty > 0 && holding >= safeQty;
 
   return (
     <div className="group relative rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:shadow-none dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
@@ -116,34 +129,39 @@ function TickerCard({
         </div>
       </Link>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-500 dark:text-gray-400">
-        <span className="tabular-nums">
+      <div className="mt-3 space-y-2 text-[11px] text-gray-500 dark:text-gray-400">
+        <p className="tabular-nums">
           발행 {ticker.outstandingShares} · 보유 {holding}
-        </span>
-        <div className="flex flex-wrap gap-1">
+        </p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <label className="flex items-center gap-1">
+            <span className="sr-only">수량</span>
+            <input
+              type="number"
+              min={1}
+              max={9999}
+              value={qty}
+              onChange={(e) => setQty(Number(e.target.value))}
+              className="w-16 rounded-md border border-gray-300 bg-white px-1.5 py-1 text-xs tabular-nums text-gray-900 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-200 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+              aria-label={`${ticker.name} 거래 수량`}
+            />
+            <span className="text-[10px] text-gray-400">주</span>
+          </label>
           <Btn
             tone="buy"
-            disabled={pending || balance < ticker.price + 1}
-            onClick={() => onTrade(ticker.id, "buy", 1)}
-            label={`${ticker.name} 1주 매수`}
+            disabled={pending || !canBuy}
+            onClick={() => onTrade(ticker.id, "buy", safeQty)}
+            label={`${ticker.name} ${safeQty}주 매수`}
           >
-            +1
-          </Btn>
-          <Btn
-            tone="buy"
-            disabled={pending || balance < ticker.price * 5 + 25}
-            onClick={() => onTrade(ticker.id, "buy", 5)}
-            label={`${ticker.name} 5주 매수`}
-          >
-            +5
+            매수 {buyAmount > 0 ? `${buyAmount}pt` : ""}
           </Btn>
           <Btn
             tone="sell"
-            disabled={pending || holding < 1}
-            onClick={() => onTrade(ticker.id, "sell", 1)}
-            label={`${ticker.name} 1주 매도`}
+            disabled={pending || !canSell}
+            onClick={() => onTrade(ticker.id, "sell", safeQty)}
+            label={`${ticker.name} ${safeQty}주 매도`}
           >
-            -1
+            매도 {sellAmount > 0 ? `${sellAmount}pt` : ""}
           </Btn>
           <Btn
             tone="sell"
@@ -151,7 +169,7 @@ function TickerCard({
             onClick={() => onTrade(ticker.id, "sell", holding)}
             label={`${ticker.name} 전량 매도`}
           >
-            전량 매도
+            전량 ({holding})
           </Btn>
         </div>
       </div>
