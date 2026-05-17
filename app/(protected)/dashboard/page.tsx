@@ -30,7 +30,7 @@ export default async function DashboardPage() {
     );
   }
 
-  const salaryThisMonth = isSalaryThisMonth(session.user.lastSalaryAt ?? null);
+  const salaryThisWeek = isSalaryThisWeek(session.user.lastSalaryAt ?? null);
   const justCredited = session.user.salaryJustCredited === true;
 
   return (
@@ -38,7 +38,7 @@ export default async function DashboardPage() {
       <LiveUpdater />
       {justCredited && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
-          💰 <span className="font-semibold">이번 달 월급 1,000pt</span>가 잔고에
+          💰 <span className="font-semibold">이번 주 주급 1,000pt</span>가 잔고에
           입금되었습니다.
         </div>
       )}
@@ -65,9 +65,9 @@ export default async function DashboardPage() {
             </span>
           </p>
           <WeekReturn portfolioValue={myState.portfolioValue} />
-          {salaryThisMonth && !justCredited && (
+          {salaryThisWeek && !justCredited && (
             <p className="mt-1 text-[10px] text-gray-400 dark:text-gray-500">
-              💰 이번 달 월급 입금 완료
+              💰 이번 주 주급 입금 완료
             </p>
           )}
         </div>
@@ -136,14 +136,18 @@ export default async function DashboardPage() {
   );
 }
 
-function isSalaryThisMonth(iso: string | null): boolean {
+function isSalaryThisWeek(iso: string | null): boolean {
   if (!iso) return false;
-  const d = new Date(iso);
-  const now = new Date();
-  return (
-    d.getUTCFullYear() === now.getUTCFullYear() &&
-    d.getUTCMonth() === now.getUTCMonth()
-  );
+  return weekKey(new Date(iso)) === weekKey(new Date());
+}
+
+function weekKey(d: Date): string {
+  const monday = new Date(d.getTime());
+  const day = monday.getUTCDay();
+  const diff = (day + 6) % 7;
+  monday.setUTCDate(monday.getUTCDate() - diff);
+  monday.setUTCHours(0, 0, 0, 0);
+  return monday.toISOString().slice(0, 10);
 }
 
 function WeekReturn({ portfolioValue }: { portfolioValue: number }) {

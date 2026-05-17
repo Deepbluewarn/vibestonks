@@ -208,7 +208,7 @@ function describe(e: BalanceHistoryEntry): {
       };
     case "salary":
       return {
-        label: `월급 (${yearMonth(e.occurredAt)})`,
+        label: `주급 (${weekLabel(e.occurredAt)})`,
         icon: "💰",
         bg: "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
       };
@@ -227,9 +227,12 @@ function describe(e: BalanceHistoryEntry): {
   }
 }
 
-function yearMonth(ts: number): string {
-  const d = new Date(ts);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+function weekLabel(ts: number): string {
+  const monday = new Date(ts);
+  const day = monday.getDay();
+  const diff = (day + 6) % 7;
+  monday.setDate(monday.getDate() - diff);
+  return `${monday.getMonth() + 1}/${monday.getDate()} 주`;
 }
 
 function formatTime(ts: number): string {

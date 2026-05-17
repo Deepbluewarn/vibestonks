@@ -66,9 +66,9 @@ _Avoid_: Soft reset, 정산
 하나의 **Hard Reset**으로 시작해서 다음 **Liquidation**으로 종료되는 게임 단위. DB 스키마에선 `weeks` 테이블이지만 운영자가 임의 주기로 돌리므로 "주" 자체는 가변. UI에선 보통 "라운드"로 표기.
 _Avoid_: Season, Episode
 
-**Salary (월급)**:
-매 calendar month 첫 로그인 시 자동으로 **Balance**에 +1,000pt 입금. `traders.lastSalaryAt`이 같은 YYYY-MM인지로 중복 지급 방지. 활성 라운드가 없으면 보류. 라운드 리셋과 무관하게 굴러가는 베이직 인컴.
-_Avoid_: Stipend, Allowance
+**Salary (주급)**:
+매 주(월요일~일요일) 첫 로그인 시 자동으로 **Balance**에 +1,000pt 입금. `traders.lastSalaryAt`이 같은 주(weekKey: 그 주 월요일 날짜)인지로 중복 지급 방지. 활성 라운드가 없으면 보류. 라운드 리셋과 무관하게 굴러가는 베이직 인컴.
+_Avoid_: 월급(이전 명칭), Stipend, Allowance
 
 ### 기록과 가시성
 

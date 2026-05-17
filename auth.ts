@@ -7,9 +7,17 @@ import { publish } from "@/lib/events";
 const SEED_POINTS = 1000;
 const SALARY_POINTS = 1000;
 
-/** "YYYY-MM" — 월급 입금 여부를 calendar month 단위로 비교 */
-function yearMonth(d: Date): string {
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+/**
+ * 그 주의 월요일 날짜를 YYYY-MM-DD로 반환. 주급 입금 여부를 주(Mon-Sun) 단위로 비교.
+ * 월요일 기준이라 일요일 23:59와 월요일 00:01은 서로 다른 주로 처리됨.
+ */
+function weekKey(d: Date): string {
+  const monday = new Date(d.getTime());
+  const day = monday.getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const diff = (day + 6) % 7; // days since Monday
+  monday.setUTCDate(monday.getUTCDate() - diff);
+  monday.setUTCHours(0, 0, 0, 0);
+  return monday.toISOString().slice(0, 10);
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -109,13 +117,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (!trader) return session;
 
       // ---- 월급 체크 ----
-      const currentMonth = yearMonth(new Date());
-      const lastMonth = trader.lastSalaryAt
-        ? yearMonth(new Date(trader.lastSalaryAt))
+      const currentWeek = weekKey(new Date());
+      const lastWeek = trader.lastSalaryAt
+        ? weekKey(new Date(trader.lastSalaryAt))
         : null;
 
       let salaryJustCredited = false;
-      if (lastMonth !== currentMonth) {
+      if (lastWeek !== currentWeek) {
         // 같은 트랜잭션 안에서 read-check-write로 race condition 방지
         db.transaction((tx) => {
           const fresh = tx
@@ -124,10 +132,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             .where(eq(schema.traders.id, trader.id))
             .get();
           if (!fresh) return;
-          const freshMonth = fresh.lastSalaryAt
-            ? yearMonth(new Date(fresh.lastSalaryAt))
+          const freshWeek = fresh.lastSalaryAt
+            ? weekKey(new Date(fresh.lastSalaryAt))
             : null;
-          if (freshMonth === currentMonth) return; // 다른 요청이 이미 처리
+          if (freshWeek === currentWeek) return; // 다른 요청이 이미 처리
 
           const activeWeek = tx
             .select()
