@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `traders_display_name_idx` ON `traders` (`display_name`);

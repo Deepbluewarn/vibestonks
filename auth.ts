@@ -32,9 +32,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         .where(eq(schema.traders.sub, sub))
         .get();
       if (!trader) {
+        // displayName 충돌 시 suffix(-2, -3, ...)로 유일성 보장. 본인은 나중에
+        // /onboarding 에서 원하는 이름으로 바꿀 수 있음.
+        let unique = displayName;
+        let n = 1;
+        while (
+          db
+            .select()
+            .from(schema.traders)
+            .where(eq(schema.traders.displayName, unique))
+            .get()
+        ) {
+          n += 1;
+          unique = `${displayName}-${n}`;
+        }
         trader = db
           .insert(schema.traders)
-          .values({ sub, displayName, lastSalaryAt: new Date() })
+          .values({ sub, displayName: unique, lastSalaryAt: new Date() })
           .returning()
           .get();
       }

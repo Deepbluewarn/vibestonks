@@ -29,7 +29,10 @@ export const traders = sqliteTable(
     /** 마지막 월급 입금 시각. 같은 YYYY-MM이면 이번 달 분은 이미 받은 것으로 간주 */
     lastSalaryAt: integer("last_salary_at", { mode: "timestamp" }),
   },
-  (t) => [uniqueIndex("traders_sub_idx").on(t.sub)],
+  (t) => [
+    uniqueIndex("traders_sub_idx").on(t.sub),
+    uniqueIndex("traders_display_name_idx").on(t.displayName),
+  ],
 );
 
 export const tickers = sqliteTable(
