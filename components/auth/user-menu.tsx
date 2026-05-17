@@ -13,28 +13,35 @@ export function UserMenu({ session }: UserMenuProps) {
 
   return (
     <div className="flex items-center gap-3">
-      <div className="hidden text-right sm:block">
-        <p className="text-sm font-medium leading-tight text-gray-900 dark:text-gray-100">
-          {label}
-        </p>
-        <p className="text-xs leading-tight text-gray-500 dark:text-gray-400">
-          {email}
-        </p>
-      </div>
-
-      {image ? (
-        <Image
-          src={image}
-          alt={label}
-          width={32}
-          height={32}
-          className="rounded-full"
-        />
-      ) : (
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-medium text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-200">
-          {label[0]?.toUpperCase() ?? "?"}
+      <Link
+        href="/onboarding"
+        title="닉네임 변경"
+        aria-label="프로필 편집"
+        className="group flex items-center gap-3 rounded-md transition-opacity hover:opacity-80"
+      >
+        <div className="hidden text-right sm:block">
+          <p className="text-sm font-medium leading-tight text-gray-900 dark:text-gray-100">
+            {label}
+          </p>
+          <p className="text-xs leading-tight text-gray-500 dark:text-gray-400">
+            {email}
+          </p>
         </div>
-      )}
+
+        {image ? (
+          <Image
+            src={image}
+            alt={label}
+            width={32}
+            height={32}
+            className="rounded-full"
+          />
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-medium text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-200">
+            {label[0]?.toUpperCase() ?? "?"}
+          </div>
+        )}
+      </Link>
 
       <Link
         href="/history"

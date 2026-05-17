@@ -3,7 +3,12 @@
 import { useState, useTransition } from "react";
 import { completeOnboarding } from "@/lib/actions/onboard";
 
-export function OnboardingForm({ initialNickname }: { initialNickname: string }) {
+interface Props {
+  initialNickname: string;
+  isEdit?: boolean;
+}
+
+export function OnboardingForm({ initialNickname, isEdit = false }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [nickname, setNickname] = useState(initialNickname);
@@ -15,6 +20,8 @@ export function OnboardingForm({ initialNickname }: { initialNickname: string })
       if (result && !result.ok) setError(result.error);
     });
   };
+
+  const unchanged = nickname.trim() === initialNickname.trim();
 
   return (
     <form action={submit} className="space-y-3">
@@ -47,10 +54,10 @@ export function OnboardingForm({ initialNickname }: { initialNickname: string })
 
       <button
         type="submit"
-        disabled={pending || nickname.trim().length < 2}
+        disabled={pending || nickname.trim().length < 2 || (isEdit && unchanged)}
         className="w-full rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-400"
       >
-        {pending ? "저장 중..." : "시작하기"}
+        {pending ? "저장 중..." : isEdit ? "변경하기" : "시작하기"}
       </button>
     </form>
   );
