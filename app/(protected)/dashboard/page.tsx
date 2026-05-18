@@ -45,7 +45,7 @@ export default async function DashboardPage() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
-            vibestonks
+            antstock
           </h1>
           {activeWeek && (
             <RoundStatus

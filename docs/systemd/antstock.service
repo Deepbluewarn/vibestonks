@@ -1,0 +1,39 @@
+# 예시 systemd unit. /etc/systemd/system/antstock.service 에 복사 후 경로/사용자 수정.
+#
+# 설치:
+#   sudo cp docs/systemd/antstock.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now antstock
+#
+# 로그 확인:
+#   journalctl -u antstock -f
+
+[Unit]
+Description=antstock — 가짜 주식 토너먼트
+After=network.target
+
+[Service]
+Type=simple
+User=antstock
+Group=antstock
+WorkingDirectory=/opt/antstock
+
+# 환경 변수: AUTH_SECRET, AUTH_GOOGLE_ID/SECRET, AUTH_GITHUB_ID/SECRET,
+# NEXTAUTH_URL=https://antstock.dev, AUTH_TRUST_HOST=true,
+# ANTSTOCK_DB_PATH=/var/lib/antstock/db.sqlite, PORT=8554
+EnvironmentFile=/etc/antstock.env
+
+# 스키마 진화 자동 반영 (이미 적용된 마이그레이션은 noop)
+ExecStartPre=/usr/bin/npm run db:migrate
+
+ExecStart=/usr/bin/npm start
+
+Restart=on-failure
+RestartSec=3
+
+# 표준 출력은 journald로
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

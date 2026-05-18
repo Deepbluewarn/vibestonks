@@ -6,14 +6,14 @@
  */
 
 const globalForRL = globalThis as unknown as {
-  __vibestonksRL?: Map<string, number[]>;
+  __antstockRL?: Map<string, number[]>;
 };
 
-if (!globalForRL.__vibestonksRL) {
-  globalForRL.__vibestonksRL = new Map();
+if (!globalForRL.__antstockRL) {
+  globalForRL.__antstockRL = new Map();
 }
 
-const buckets = globalForRL.__vibestonksRL;
+const buckets = globalForRL.__antstockRL;
 
 export interface RateLimitOptions {
   /** 슬라이딩 윈도우 길이 (ms) */

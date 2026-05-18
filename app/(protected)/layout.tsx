@@ -22,7 +22,7 @@ export default async function ProtectedLayout({
             href="/dashboard"
             className="text-lg font-semibold text-gray-900 transition-opacity hover:opacity-70 dark:text-gray-100"
           >
-            vibestonks
+            antstock
           </Link>
           <div className="flex items-center gap-3">
             <ThemeToggle />

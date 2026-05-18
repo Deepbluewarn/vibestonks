@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "vibestonks",
+  title: "antstock",
   description: "가짜 주식 주간 토너먼트 — 실제 자산과 무관한 시뮬레이션 게임",
 };
 

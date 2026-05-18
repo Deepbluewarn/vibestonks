@@ -1,6 +1,6 @@
 # 단일 Next.js 앱 + SQLite (별도 백엔드 없음)
 
-vibestonks는 작은 규모(수 명~수십 명)의 개인 토이 프로젝트이므로 별도 게이트웨이/백엔드 서비스를 두지 않고 Next.js 한 앱이 API 라우트로 비즈니스 로직을 처리한다. 인증은 NextAuth v5 직결, DB는 SQLite 단일 파일을 Next.js 서버 프로세스만 접근 가능한 경로(예: `/var/lib/vibestonks/db.sqlite`)에 두며 `app/`이나 `public/` 아래에는 절대 두지 않는다.
+antstock은 작은 규모(수 명~수십 명)의 개인 토이 프로젝트이므로 별도 게이트웨이/백엔드 서비스를 두지 않고 Next.js 한 앱이 API 라우트로 비즈니스 로직을 처리한다. 인증은 NextAuth v5 직결, DB는 SQLite 단일 파일을 Next.js 서버 프로세스만 접근 가능한 경로(예: `/var/lib/antstock/db.sqlite`)에 두며 `app/`이나 `public/` 아래에는 절대 두지 않는다.
 
 ## Considered Options
 

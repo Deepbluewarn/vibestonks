@@ -5,7 +5,10 @@ import * as fs from "node:fs";
 import * as schema from "./schema";
 
 const DEFAULT_DEV_PATH = path.resolve(process.cwd(), ".data/db.sqlite");
-const dbPath = process.env.VIBESTONKS_DB_PATH ?? DEFAULT_DEV_PATH;
+const dbPath =
+  process.env.ANTSTOCK_DB_PATH ??
+  process.env.VIBESTONKS_DB_PATH ?? // 이전 명칭 호환
+  DEFAULT_DEV_PATH;
 
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 

@@ -13,37 +13,37 @@
  */
 import { EventEmitter } from "node:events";
 
-export type VibestonksEvent =
+export type AntstockEvent =
   | { type: "trade"; tickerId: number; price: number; outstandingShares: number }
   | { type: "liquidation"; weekId: number }
   | { type: "reset"; weekId: number };
 
-const CHANNEL = "vibestonks";
+const CHANNEL = "antstock";
 
 const globalForEvents = globalThis as unknown as {
-  __vibestonksEmitter?: EventEmitter;
-  __vibestonksEmitterId?: string;
+  __antstockEmitter?: EventEmitter;
+  __antstockEmitterId?: string;
 };
 
-if (!globalForEvents.__vibestonksEmitter) {
+if (!globalForEvents.__antstockEmitter) {
   const e = new EventEmitter();
   e.setMaxListeners(200);
-  globalForEvents.__vibestonksEmitter = e;
-  globalForEvents.__vibestonksEmitterId = Math.random().toString(36).slice(2, 8);
-  console.log(`[events] singleton created id=${globalForEvents.__vibestonksEmitterId}`);
+  globalForEvents.__antstockEmitter = e;
+  globalForEvents.__antstockEmitterId = Math.random().toString(36).slice(2, 8);
+  console.log(`[events] singleton created id=${globalForEvents.__antstockEmitterId}`);
 }
 
-const emitter = globalForEvents.__vibestonksEmitter;
-const EID = globalForEvents.__vibestonksEmitterId;
+const emitter = globalForEvents.__antstockEmitter;
+const EID = globalForEvents.__antstockEmitterId;
 
-export function publish(event: VibestonksEvent): void {
+export function publish(event: AntstockEvent): void {
   console.log(
     `[events] publish ${event.type} (emitter=${EID}, listeners=${emitter.listenerCount(CHANNEL)})`,
   );
   emitter.emit(CHANNEL, event);
 }
 
-export function subscribe(handler: (event: VibestonksEvent) => void): () => void {
+export function subscribe(handler: (event: AntstockEvent) => void): () => void {
   emitter.on(CHANNEL, handler);
   console.log(
     `[events] subscribe (emitter=${EID}, listeners=${emitter.listenerCount(CHANNEL)})`,

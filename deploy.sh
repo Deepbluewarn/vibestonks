@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# vibestonks 자체 호스팅 배포 스크립트.
+# antstock 자체 호스팅 배포 스크립트.
 #
 # 가정:
 #   - 서버에 git clone 돼 있는 디렉토리에서 실행
-#   - VIBESTONKS_DB_PATH, AUTH_SECRET, OAuth 시크릿 등은 systemd EnvironmentFile
-#     (/etc/vibestonks.env)이나 .env.local에 이미 설정됨
+#   - ANTSTOCK_DB_PATH, AUTH_SECRET, OAuth 시크릿 등은 systemd EnvironmentFile
+#     (/etc/antstock.env)이나 .env.local에 이미 설정됨
 #   - 서비스가 systemd로 관리됨 (다른 매니저 쓰면 SERVICE_RESTART 환경변수로 덮어쓰기)
 #
 # 사용:
 #   ./deploy.sh                      # main 최신 배포
 #   BRANCH=experimental ./deploy.sh  # 다른 브랜치
-#   SERVICE_RESTART="pm2 restart vibestonks" ./deploy.sh
+#   SERVICE_RESTART="pm2 restart antstock" ./deploy.sh
 #   SKIP_PULL=1 ./deploy.sh          # git pull 건너뛰기 (이미 수동 체크아웃했을 때)
 
 set -euo pipefail
@@ -19,17 +19,21 @@ step() { echo ""; echo "→ $*"; }
 
 cd "$(dirname "$0")"
 
-# systemd가 쓰는 EnvironmentFile이 있으면 VIBESTONKS_DB_PATH 등을 가져온다
+# systemd가 쓰는 EnvironmentFile이 있으면 ANTSTOCK_DB_PATH 등을 가져온다
 # (대화형 셸에서 deploy.sh 직접 실행 시에도 같은 경로 쓰기 위해)
-if [ -f /etc/vibestonks.env ]; then
-  set -a
-  . /etc/vibestonks.env
-  set +a
-fi
+# 이전 vibestonks 명칭의 env 파일도 호환 지원.
+for env_file in /etc/antstock.env /etc/vibestonks.env; do
+  if [ -f "$env_file" ]; then
+    set -a
+    . "$env_file"
+    set +a
+    break
+  fi
+done
 
 BRANCH="${BRANCH:-main}"
-SERVICE_RESTART="${SERVICE_RESTART:-systemctl restart vibestonks}"
-DB_PATH="${VIBESTONKS_DB_PATH:-./.data/db.sqlite}"
+SERVICE_RESTART="${SERVICE_RESTART:-systemctl restart antstock}"
+DB_PATH="${ANTSTOCK_DB_PATH:-${VIBESTONKS_DB_PATH:-./.data/db.sqlite}}"
 
 if [ "${SKIP_PULL:-0}" != "1" ]; then
   step "[1/5] Pulling latest from $BRANCH"

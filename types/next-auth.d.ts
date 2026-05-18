@@ -3,7 +3,7 @@ import type { DefaultSession } from "next-auth";
 declare module "next-auth" {
   interface Session {
     user: {
-      /** vibestonks Trader row id — used to scope balance/holdings queries */
+      /** antstock Trader row id — used to scope balance/holdings queries */
       traderId?: number;
       isAdmin?: boolean;
       displayName?: string;

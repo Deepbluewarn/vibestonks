@@ -19,7 +19,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <div className="w-full max-w-md space-y-6 rounded-lg border border-gray-200 bg-white p-8 shadow-md dark:border-gray-800 dark:bg-gray-900 dark:shadow-none">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-50">
-            vibestonks
+            antstock
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             로그인해서 이번 주 1,000 포인트 받기
