@@ -208,7 +208,22 @@ export function getPriceHistory(
       shares: t.shares,
     });
   }
-  return series;
+  return decimate(series, 600);
+}
+
+/**
+ * 시리즈를 maxPoints 이하로 다운샘플링. 첫/마지막 포인트 보존, 중간은 균등 간격 stride.
+ * 봇 ×N 운영으로 거래 수가 수만 단위 누적될 때 RSC 페이로드/spread 한도(V8 ~65k) 폭주 방지.
+ */
+function decimate(series: PricePoint[], maxPoints: number): PricePoint[] {
+  if (series.length <= maxPoints) return series;
+  const stride = (series.length - 1) / (maxPoints - 1);
+  const out: PricePoint[] = new Array(maxPoints);
+  for (let i = 0; i < maxPoints - 1; i++) {
+    out[i] = series[Math.floor(i * stride)];
+  }
+  out[maxPoints - 1] = series[series.length - 1];
+  return out;
 }
 
 export interface TickerWithHistory extends TickerSnapshot {

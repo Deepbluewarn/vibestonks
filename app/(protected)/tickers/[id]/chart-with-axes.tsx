@@ -32,9 +32,13 @@ export function ChartWithAxes({ history }: { history: PricePoint[] }) {
 
   const view = useMemo(() => {
     if (filtered.length < 2) return null;
-    const prices = filtered.map((p) => p.price);
-    const priceMin = Math.min(...prices);
-    const priceMax = Math.max(...prices);
+    let priceMin = filtered[0].price;
+    let priceMax = filtered[0].price;
+    for (let i = 1; i < filtered.length; i++) {
+      const p = filtered[i].price;
+      if (p < priceMin) priceMin = p;
+      if (p > priceMax) priceMax = p;
+    }
     const tMin = filtered[0].t;
     const tMax = filtered[filtered.length - 1].t;
     return { priceMin, priceMax, tMin, tMax };
@@ -172,8 +176,9 @@ function filterByRange(history: PricePoint[], range: Range): PricePoint[] {
   }
   const inRange = history.filter((p) => p.t > startT && p.t <= now && p.side);
 
-  const series: PricePoint[] = [{ t: startT, price: anchorPrice }];
-  series.push(...inRange);
+  const series: PricePoint[] = new Array(inRange.length + 1);
+  series[0] = { t: startT, price: anchorPrice };
+  for (let i = 0; i < inRange.length; i++) series[i + 1] = inRange[i];
   const last = series[series.length - 1];
   if (last.t < now) series.push({ t: now, price: last.price });
   return series;

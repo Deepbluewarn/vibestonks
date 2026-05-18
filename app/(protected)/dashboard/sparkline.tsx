@@ -217,9 +217,13 @@ function buildView(points: PricePoint[], width: number, height: number) {
   const xMax = xOf(points[points.length - 1]);
   const xRange = Math.max(1, xMax - xMin);
 
-  const prices = points.map((p) => p.price);
-  const pMin = Math.min(...prices);
-  const pMax = Math.max(...prices);
+  let pMin = points[0].price;
+  let pMax = points[0].price;
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i].price;
+    if (p < pMin) pMin = p;
+    if (p > pMax) pMax = p;
+  }
   const pRange = Math.max(1, pMax - pMin);
 
   const PAD_X = 2;
