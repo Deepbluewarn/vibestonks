@@ -9,6 +9,7 @@ import {
   adminBotStop,
   adminFullWipe,
   adminGiftPay,
+  adminGiftPayOne,
   adminGiftStart,
   adminGiftStop,
   adminLiquidate,
@@ -112,6 +113,7 @@ export function AdminActions({
       <GiftSection
         giftStatus={giftStatus}
         hasActiveWeek={hasActiveWeek}
+        traders={traders}
         pending={pending}
         run={run}
       />
@@ -347,6 +349,7 @@ function BotSection({
 function GiftSection({
   giftStatus,
   hasActiveWeek,
+  traders,
   pending,
   run,
 }: {
@@ -358,6 +361,13 @@ function GiftSection({
     maxAmount: number;
   };
   hasActiveWeek: boolean;
+  traders: {
+    id: number;
+    displayName: string;
+    sub: string;
+    isAdmin: boolean;
+    currentBalance: number | null;
+  }[];
   pending: boolean;
   run: (fn: () => Promise<AdminActionResult>, confirm?: string) => void;
 }) {
@@ -366,6 +376,9 @@ function GiftSection({
   const [minA, setMinA] = useState(giftStatus.minAmount);
   const [maxA, setMaxA] = useState(giftStatus.maxAmount);
   const [oneShot, setOneShot] = useState(50);
+  const humanTraders = traders.filter((t) => !t.sub.startsWith("bot:"));
+  const [targetId, setTargetId] = useState<number>(humanTraders[0]?.id ?? 0);
+  const [targetAmount, setTargetAmount] = useState<number>(100);
 
   return (
     <Section
@@ -445,6 +458,65 @@ function GiftSection({
               }
             >
               📤 모두에게 +{oneShot}pt
+            </PrimaryBtn>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200 pt-3 dark:border-gray-800">
+          <p className="mb-1 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            특정 유저 지급 (음수면 차감)
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="block">
+              <span className="block text-[11px] text-gray-500 dark:text-gray-400">
+                트레이더
+              </span>
+              <select
+                value={targetId}
+                onChange={(e) => setTargetId(Number(e.target.value))}
+                className="mt-1 w-48 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+              >
+                {humanTraders.length === 0 && (
+                  <option value={0}>(사람 트레이더 없음)</option>
+                )}
+                {humanTraders.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.displayName}
+                    {t.currentBalance !== null ? ` · ${t.currentBalance}pt` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="block text-[11px] text-gray-500 dark:text-gray-400">
+                금액(pt)
+              </span>
+              <input
+                type="number"
+                min={-100000}
+                max={100000}
+                value={targetAmount}
+                onChange={(e) => setTargetAmount(Number(e.target.value))}
+                className="mt-1 w-28 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm tabular-nums text-gray-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+              />
+            </label>
+            <PrimaryBtn
+              disabled={
+                pending ||
+                !hasActiveWeek ||
+                targetId <= 0 ||
+                targetAmount === 0
+              }
+              onClick={() => {
+                const t = humanTraders.find((x) => x.id === targetId);
+                const sign = targetAmount >= 0 ? "+" : "";
+                run(
+                  () => adminGiftPayOne(targetId, targetAmount),
+                  `${t?.displayName ?? "트레이더"}에게 ${sign}${targetAmount}pt 지급합니다.`,
+                );
+              }}
+            >
+              💸 지급
             </PrimaryBtn>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { setBotSpeed, startBots, stopBots } from "@/lib/bots/runner";
 import {
   payGiftNow,
+  payGiftToTrader,
   startGifts,
   stopGifts,
   type GiftConfig,
@@ -208,6 +209,42 @@ export async function adminGiftPay(amount: number): Promise<AdminActionResult> {
       return { ok: false, error: "활성 라운드가 없거나 트레이더 0명" };
     }
     return { ok: true, message: `+${amount}pt × ${count}명에게 지급` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "지급 실패" };
+  }
+}
+
+export async function adminGiftPayOne(
+  targetTraderId: number,
+  amount: number,
+): Promise<AdminActionResult> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+  if (!Number.isInteger(targetTraderId) || targetTraderId <= 0) {
+    return { ok: false, error: "트레이더 선택 필요" };
+  }
+  if (!Number.isFinite(amount) || amount === 0 || amount < -100000 || amount > 100000) {
+    return { ok: false, error: "금액은 -100000~100000pt (0 제외)" };
+  }
+  try {
+    const t = db
+      .select()
+      .from(schema.traders)
+      .where(eq(schema.traders.id, targetTraderId))
+      .get();
+    if (!t) return { ok: false, error: "트레이더 없음" };
+    const after = payGiftToTrader(targetTraderId, Math.trunc(amount));
+    if (after === null) {
+      return { ok: false, error: "활성 라운드 잔고 없음" };
+    }
+    revalidatePath("/admin");
+    revalidatePath("/dashboard");
+    revalidatePath("/history");
+    const sign = amount >= 0 ? "+" : "";
+    return {
+      ok: true,
+      message: `${t.displayName}: ${sign}${amount}pt (잔고 ${after})`,
+    };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "지급 실패" };
   }

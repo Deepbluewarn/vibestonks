@@ -172,3 +172,65 @@ export function payGiftNow(amount: number): number {
   }
   return count;
 }
+
+/**
+ * 특정 트레이더 한 명에게 amount 만큼 지급. amount 음수면 차감(잔고가 음수가 되지는 않게 0 floor).
+ * @returns 지급 후 잔고 / null = 트레이더가 활성 라운드 balance row 없음
+ */
+export function payGiftToTrader(
+  traderId: number,
+  amount: number,
+): number | null {
+  if (!Number.isFinite(amount) || amount === 0) return null;
+  const week = db
+    .select()
+    .from(schema.weeks)
+    .where(eq(schema.weeks.isActive, true))
+    .get();
+  if (!week) return null;
+
+  let result: number | null = null;
+  db.transaction((tx) => {
+    const b = tx
+      .select()
+      .from(schema.balances)
+      .where(
+        and(
+          eq(schema.balances.weekId, week.id),
+          eq(schema.balances.traderId, traderId),
+        ),
+      )
+      .get();
+    if (!b) return;
+    const newBalance = Math.max(0, b.points + amount);
+    const delta = newBalance - b.points;
+    if (delta === 0) {
+      result = b.points;
+      return;
+    }
+    tx.update(schema.balances)
+      .set({ points: newBalance })
+      .where(
+        and(
+          eq(schema.balances.weekId, week.id),
+          eq(schema.balances.traderId, traderId),
+        ),
+      )
+      .run();
+    tx.insert(schema.balanceEvents)
+      .values({
+        traderId,
+        weekId: week.id,
+        delta,
+        balanceAfter: newBalance,
+        type: "gift",
+      })
+      .run();
+    result = newBalance;
+  });
+  if (result !== null) {
+    publish({ type: "trade", tickerId: -1, price: 0, outstandingShares: 0 });
+    console.log(`[gifts] trader ${traderId} ${amount >= 0 ? "+" : ""}${amount}pt → ${result}`);
+  }
+  return result;
+}
