@@ -119,12 +119,15 @@ export function getAdminStats(): AdminStats {
 }
 
 export interface PricePoint {
-  /** Unix ms */
+  /** Unix ms — 실제 거래 시각. 툴팁은 항상 이걸 표시 */
   t: number;
   price: number;
   /** 거래에서 비롯된 점인 경우 — 시작/현재 동기화 점은 undefined */
   side?: "buy" | "sell";
   shares?: number;
+  /** X축 위치 계산용 (옵션). undefined면 t 사용.
+   *  '거래순' 모드 등에서 t와 다른 위치 좌표를 쓰고 싶을 때 채움. */
+  displayT?: number;
 }
 
 /**

@@ -5,6 +5,7 @@ import type { PricePoint } from "@/lib/queries";
 import { Sparkline } from "@/app/(protected)/dashboard/sparkline";
 
 type Range = "1d" | "1w" | "1m" | "1y" | "all";
+type AxisMode = "time" | "index";
 
 const RANGES: { key: Range; label: string; ms: number | null }[] = [
   { key: "1d", label: "1일", ms: 24 * 60 * 60 * 1000 },
@@ -16,11 +17,18 @@ const RANGES: { key: Range; label: string; ms: number | null }[] = [
 
 export function ChartWithAxes({ history }: { history: PricePoint[] }) {
   const [range, setRange] = useState<Range>("all");
+  const [axisMode, setAxisMode] = useState<AxisMode>("time");
 
   const filtered = useMemo(
     () => filterByRange(history, range),
     [history, range],
   );
+
+  // 거래순 모드: 각 포인트에 displayT = index 부여. Sparkline이 displayT 우선 사용.
+  const displayPoints = useMemo(() => {
+    if (axisMode === "time") return filtered;
+    return filtered.map((p, i) => ({ ...p, displayT: i }));
+  }, [filtered, axisMode]);
 
   const view = useMemo(() => {
     if (filtered.length < 2) return null;
@@ -29,41 +37,90 @@ export function ChartWithAxes({ history }: { history: PricePoint[] }) {
     const priceMax = Math.max(...prices);
     const tMin = filtered[0].t;
     const tMax = filtered[filtered.length - 1].t;
-    const tickCount = 5;
-    const timeTicks = Array.from({ length: tickCount }, (_, i) =>
-      Math.round(tMin + ((tMax - tMin) * i) / (tickCount - 1)),
-    );
-    return { priceMin, priceMax, tMin, tMax, timeTicks };
+    return { priceMin, priceMax, tMin, tMax };
   }, [filtered]);
+
+  // 하단 시간 라벨
+  const ticks = useMemo(() => {
+    if (!view) return [] as number[];
+    if (axisMode === "index") {
+      // 거래순 모드: 시작/끝 두 시각만
+      return view.tMin === view.tMax ? [view.tMin] : [view.tMin, view.tMax];
+    }
+    const N = 5;
+    return Array.from({ length: N }, (_, i) =>
+      Math.round(view.tMin + ((view.tMax - view.tMin) * i) / (N - 1)),
+    );
+  }, [view, axisMode]);
 
   return (
     <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:shadow-none">
-      <nav className="flex flex-wrap gap-1" role="tablist" aria-label="가격 차트 기간">
-        {RANGES.map((r) => {
-          const active = r.key === range;
-          return (
-            <button
-              key={r.key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setRange(r.key)}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                active
-                  ? "bg-indigo-600 text-white dark:bg-indigo-500"
-                  : "border border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-              }`}
-            >
-              {r.label}
-            </button>
-          );
-        })}
-      </nav>
+      <div className="flex flex-wrap items-center gap-2">
+        <nav className="flex flex-wrap gap-1" role="tablist" aria-label="가격 차트 기간">
+          {RANGES.map((r) => {
+            const active = r.key === range;
+            return (
+              <button
+                key={r.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setRange(r.key)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  active
+                    ? "bg-indigo-600 text-white dark:bg-indigo-500"
+                    : "border border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                }`}
+              >
+                {r.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <span className="hidden h-4 w-px bg-gray-300 dark:bg-gray-700 sm:inline-block" />
+
+        <div
+          className="flex flex-wrap gap-1"
+          role="tablist"
+          aria-label="가격 차트 X축"
+        >
+          {(
+            [
+              { key: "time" as const, label: "시간순" },
+              { key: "index" as const, label: "거래순" },
+            ]
+          ).map((m) => {
+            const active = m.key === axisMode;
+            return (
+              <button
+                key={m.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setAxisMode(m.key)}
+                title={
+                  m.key === "time"
+                    ? "시간 흐름대로 (무거래 구간은 평평하게 표시)"
+                    : "거래 순서대로 (무거래 구간 압축, 시간은 호버로 확인)"
+                }
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  active
+                    ? "bg-gray-700 text-white dark:bg-gray-200 dark:text-gray-900"
+                    : "border border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                }`}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="relative">
         <div className="h-48 w-full">
           <Sparkline
-            points={filtered}
+            points={displayPoints}
             width={800}
             height={192}
             className="h-full w-full"
@@ -84,9 +141,9 @@ export function ChartWithAxes({ history }: { history: PricePoint[] }) {
         )}
       </div>
 
-      {view && (
+      {view && ticks.length > 0 && (
         <div className="flex justify-between text-[10px] tabular-nums text-gray-400 dark:text-gray-500">
-          {view.timeTicks.map((ts, i) => (
+          {ticks.map((ts, i) => (
             <span key={i}>{formatTimeShort(ts, view.tMin, view.tMax)}</span>
           ))}
         </div>

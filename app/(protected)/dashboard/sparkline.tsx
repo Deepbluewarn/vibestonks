@@ -210,9 +210,12 @@ interface DotPct {
 
 function buildView(points: PricePoint[], width: number, height: number) {
   if (points.length < 2) return null;
-  const tMin = points[0].t;
-  const tMax = points[points.length - 1].t;
-  const tRange = Math.max(1, tMax - tMin);
+
+  // X축 위치는 displayT가 있으면 그걸, 없으면 t를 사용. (거래순 모드 지원)
+  const xOf = (p: PricePoint) => p.displayT ?? p.t;
+  const xMin = xOf(points[0]);
+  const xMax = xOf(points[points.length - 1]);
+  const xRange = Math.max(1, xMax - xMin);
 
   const prices = points.map((p) => p.price);
   const pMin = Math.min(...prices);
@@ -225,7 +228,7 @@ function buildView(points: PricePoint[], width: number, height: number) {
   const innerH = height - PAD_Y * 2;
 
   const xys = points.map((p) => ({
-    x: PAD_X + ((p.t - tMin) / tRange) * innerW,
+    x: PAD_X + ((xOf(p) - xMin) / xRange) * innerW,
     y:
       pRange === 1 && pMin === pMax
         ? PAD_Y + innerH / 2
