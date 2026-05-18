@@ -13,6 +13,21 @@ export function LiveUpdater() {
     let es: EventSource | null = null;
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    // 이벤트 폭주 시 부하 방지: trailing-edge throttle.
+    // 마지막 refresh 후 REFRESH_INTERVAL_MS 안에 들어온 이벤트는 묶어서 한 번만 refresh.
+    const REFRESH_INTERVAL_MS = 750;
+    let lastRefreshAt = 0;
+    let pendingTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = () => {
+      const now = Date.now();
+      const wait = Math.max(0, lastRefreshAt + REFRESH_INTERVAL_MS - now);
+      if (pendingTimer) return; // 이미 예약됨
+      pendingTimer = setTimeout(() => {
+        pendingTimer = null;
+        lastRefreshAt = Date.now();
+        router.refresh();
+      }, wait);
+    };
 
     const connect = () => {
       setStatus("connecting");
@@ -30,7 +45,7 @@ export function LiveUpdater() {
             evt.type === "liquidation" ||
             evt.type === "reset"
           ) {
-            router.refresh();
+            scheduleRefresh();
           }
         } catch {
           // hello/heartbeat 등 무시
@@ -51,6 +66,7 @@ export function LiveUpdater() {
     return () => {
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
+      if (pendingTimer) clearTimeout(pendingTimer);
       es?.close();
     };
   }, [router]);
