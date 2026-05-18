@@ -191,7 +191,11 @@ export function Sparkline({
 
 function formatHM(ts: number): string {
   const d = new Date(ts);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const today = new Date();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  if (d.toDateString() === today.toDateString()) return `${hh}:${mm}`;
+  return `${d.getMonth() + 1}/${d.getDate()} ${hh}:${mm}`;
 }
 
 interface DotPct {

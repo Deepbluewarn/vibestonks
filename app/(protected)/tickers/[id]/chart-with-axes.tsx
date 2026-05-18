@@ -124,14 +124,18 @@ function filterByRange(history: PricePoint[], range: Range): PricePoint[] {
 
 function formatTimeShort(ts: number, rangeStart: number, rangeEnd: number): string {
   const d = new Date(ts);
-  const sameDay =
+  const today = new Date();
+  const sameDayRange =
     new Date(rangeStart).toDateString() === new Date(rangeEnd).toDateString();
+  const isToday = d.toDateString() === today.toDateString();
   const spanMs = rangeEnd - rangeStart;
   const hh = String(d.getHours()).padStart(2, "0");
   const mm = String(d.getMinutes()).padStart(2, "0");
-  if (sameDay) return `${hh}:${mm}`;
   const M = d.getMonth() + 1;
   const D = d.getDate();
+
+  // 차트 범위가 오늘 안에서만 끝나면 시:분만, 아니면 날짜도 같이.
+  if (sameDayRange && isToday) return `${hh}:${mm}`;
   if (spanMs < 30 * 24 * 60 * 60 * 1000) return `${M}/${D} ${hh}:${mm}`;
   return `${d.getFullYear()}/${M}/${D}`;
 }
