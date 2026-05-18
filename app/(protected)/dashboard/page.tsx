@@ -54,19 +54,13 @@ export default async function DashboardPage() {
             />
           )}
         </div>
-        <div className="text-right">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            현금 잔고
-          </p>
-          <p className="text-3xl font-semibold tabular-nums text-gray-900 dark:text-gray-50">
-            {myState.balance}
-            <span className="ml-1 text-base text-gray-400 dark:text-gray-500">
-              pt
-            </span>
-          </p>
-          <WeekReturn portfolioValue={myState.portfolioValue} />
+        <div className="flex flex-col items-end gap-1">
+          <RoundReturn
+            balance={myState.balance}
+            portfolioValue={myState.portfolioValue}
+          />
           {salaryThisWeek && !justCredited && (
-            <p className="mt-1 text-[10px] text-gray-400 dark:text-gray-500">
+            <p className="text-[10px] text-gray-400 dark:text-gray-500">
               💰 이번 주 주급 입금 완료
             </p>
           )}
@@ -150,7 +144,13 @@ function weekKey(d: Date): string {
   return monday.toISOString().slice(0, 10);
 }
 
-function WeekReturn({ portfolioValue }: { portfolioValue: number }) {
+function RoundReturn({
+  balance,
+  portfolioValue,
+}: {
+  balance: number;
+  portfolioValue: number;
+}) {
   const SEED = 1000;
   const delta = portfolioValue - SEED;
   const pct = (delta / SEED) * 100;
@@ -159,13 +159,27 @@ function WeekReturn({ portfolioValue }: { portfolioValue: number }) {
       ? "text-emerald-600 dark:text-emerald-400"
       : delta < 0
         ? "text-rose-600 dark:text-rose-400"
-        : "text-gray-400 dark:text-gray-500";
+        : "text-gray-500 dark:text-gray-400";
   const arrow = delta > 0 ? "▲" : delta < 0 ? "▼" : "·";
   return (
-    <p className={`mt-0.5 text-xs font-medium tabular-nums ${color}`}>
-      {arrow} 이번 주 {delta >= 0 ? "+" : ""}
-      {delta}pt ({pct >= 0 ? "+" : ""}
-      {pct.toFixed(1)}%)
-    </p>
+    <div className="text-right">
+      <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        이번 라운드 수익
+      </p>
+      <p className={`text-3xl font-bold leading-none tabular-nums ${color}`}>
+        {arrow} {delta >= 0 ? "+" : ""}
+        {delta}
+        <span className="ml-1 text-base text-gray-400 dark:text-gray-500">
+          pt
+        </span>
+      </p>
+      <p className={`mt-1 text-sm font-medium tabular-nums ${color}`}>
+        {pct >= 0 ? "+" : ""}
+        {pct.toFixed(1)}%
+      </p>
+      <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">
+        현금 {balance}pt · 평가 {portfolioValue}pt
+      </p>
+    </div>
   );
 }

@@ -322,6 +322,10 @@ export interface TickerDetail extends TickerSnapshot {
   history: PricePoint[];
   recentTrades: TickerTrade[];
   myShares: number;
+  /** 이번 라운드 이 종목에서의 내 손익 (실현+미실현). 거래 이력 없으면 null */
+  myPnL: number | null;
+  /** 내 트레이드가 있었던 횟수 (buy/sell만, liquidation 제외) */
+  myTradeCount: number;
 }
 
 /**
@@ -388,6 +392,8 @@ export function getTickerDetail(
     }));
 
   let myShares = 0;
+  let myPnL: number | null = null;
+  let myTradeCount = 0;
   if (myTraderId !== undefined) {
     const h = db
       .select()
@@ -401,9 +407,34 @@ export function getTickerDetail(
       )
       .get();
     myShares = h?.shares ?? 0;
+
+    // 내 거래 전체(액티브 라운드, 이 종목) — buy/sell만 합산. liquidation은
+    // 라운드 마감 자동 청산이라 별도 처리 안 함 (있다면 어차피 라운드 끝나서
+    // 상세 페이지에 들어오는 시점이 거의 없음).
+    const myAllTrades = db
+      .select()
+      .from(schema.trades)
+      .where(
+        and(
+          eq(schema.trades.weekId, week.id),
+          eq(schema.trades.tickerId, tickerId),
+          eq(schema.trades.traderId, myTraderId),
+        ),
+      )
+      .all();
+    const myBuySell = myAllTrades.filter(
+      (t) => t.side === "buy" || t.side === "sell",
+    );
+    if (myBuySell.length > 0) {
+      // points 부호: buy = 음수(지불), sell = 양수(수취). 합산 = 순 현금흐름.
+      const cashNet = myBuySell.reduce((s, t) => s + t.points, 0);
+      const unrealizedValue = myShares * ticker.price;
+      myPnL = cashNet + unrealizedValue;
+      myTradeCount = myBuySell.length;
+    }
   }
 
-  return { ...ticker, history, recentTrades, myShares };
+  return { ...ticker, history, recentTrades, myShares, myPnL, myTradeCount };
 }
 
 export interface BalanceHistoryEntry {

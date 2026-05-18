@@ -72,6 +72,8 @@ export default async function TickerDetailPage({
 
       <ChartWithAxes history={detail.history} />
 
+      {detail.myPnL !== null && <MyPositionCard detail={detail} />}
+
       <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:shadow-none">
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-600 dark:text-gray-400">
           거래
@@ -130,6 +132,57 @@ export default async function TickerDetailPage({
         )}
       </section>
     </div>
+  );
+}
+
+function MyPositionCard({
+  detail,
+}: {
+  detail: NonNullable<ReturnType<typeof getTickerDetail>>;
+}) {
+  const pnl = detail.myPnL ?? 0;
+  const unrealized = detail.myShares * detail.price;
+  const isGain = pnl > 0;
+  const isLoss = pnl < 0;
+  const sign = pnl > 0 ? "+" : "";
+  const color = isGain
+    ? "text-emerald-600 dark:text-emerald-400"
+    : isLoss
+      ? "text-rose-600 dark:text-rose-400"
+      : "text-gray-500 dark:text-gray-400";
+  const arrow = isGain ? "▲" : isLoss ? "▼" : "·";
+
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:shadow-none">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            내 손익 (이번 라운드)
+          </h2>
+          <p className={`mt-1 text-2xl font-bold tabular-nums ${color}`}>
+            {arrow} {sign}
+            {pnl}pt
+          </p>
+        </div>
+        <div className="text-right text-xs text-gray-500 dark:text-gray-400">
+          <p>
+            보유 평가{" "}
+            <span className="tabular-nums text-gray-800 dark:text-gray-200">
+              {unrealized}pt
+            </span>
+            <span className="ml-1 text-[10px] text-gray-400 dark:text-gray-500">
+              ({detail.myShares}주 × {detail.price})
+            </span>
+          </p>
+          <p className="mt-0.5">
+            거래 횟수{" "}
+            <span className="tabular-nums text-gray-800 dark:text-gray-200">
+              {detail.myTradeCount}회
+            </span>
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 
