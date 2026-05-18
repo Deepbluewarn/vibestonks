@@ -1,7 +1,7 @@
 /**
  * 봇 트레이더 시뮬레이터 — 6가지 페르소나 믹스.
  *
- * 분포:
+ * 페르소나 분포:
  *   30% Momentum  — 가격 오르는 종목 따라 사기
  *   20% MeanRevert — 떨어진 종목 사기, 많이 오른 종목 팔기
  *    5% Whale     — 가끔 대량(10~30주) 거래
@@ -9,13 +9,14 @@
  *   20% Scalper   — 짧은 간격으로 1주씩 사고팔기
  *   10% Newbie    — FOMO 편향, 무작정 매수 비중 높음
  *
- * 활성화: BOT_ENABLED=true. 기본 OFF.
+ * 활성화:
+ *   - boot 시 BOT_ENABLED=true 면 자동 시작 (instrumentation.ts)
+ *   - 런타임에 /admin 또는 startBots()/stopBots()로 제어 가능
  *
- * 안전장치:
- *   - globalThis 가드로 dev hot reload 시 중복 시작 방지
- *   - 30초 마다 시장 스냅샷 캐시 (DB 부하 ↓)
- *   - 거래 rate limit 그대로 적용
- *   - 에러는 silent (한 봇이 죽어도 다른 봇 영향 X)
+ * 속도:
+ *   - speed 1.0 = 기본 (페르소나별 tick 주기 그대로)
+ *   - speed 10.0 = 10배 빠름 (모든 tick 주기를 1/10로)
+ *   - 너무 빠르면 rate limit(트레이더당 10초/15회)에 걸려 거래 일부 거부됨
  */
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
@@ -24,6 +25,7 @@ import { BOT_NAMES } from "./names";
 
 const SUB_PREFIX = "bot:";
 const INITIAL_BALANCE = 1000;
+const MIN_TICK_MS = 100; // 속도 무한정 빨라지지 않도록 하한
 const SNAPSHOT_TTL_MS = 30_000;
 
 type Personality = "momentum" | "meanRevert" | "whale" | "hodl" | "scalper" | "newbie";
@@ -37,26 +39,58 @@ const PERSONALITY_TICK: Record<Personality, [number, number]> = {
   newbie:     [10_000, 30_000],
 };
 
+interface BotState {
+  running: boolean;
+  count: number;
+  speed: number;
+  timers: Set<ReturnType<typeof setTimeout>>;
+}
+
 const globalForBots = globalThis as unknown as {
-  __antstockBotsStarted?: boolean;
+  __antstockBotState?: BotState;
 };
 
-export function startBots(): void {
-  if (process.env.BOT_ENABLED !== "true") {
-    console.log("[bots] BOT_ENABLED != true, skip");
-    return;
+function getState(): BotState {
+  if (!globalForBots.__antstockBotState) {
+    globalForBots.__antstockBotState = {
+      running: false,
+      count: 0,
+      speed: 1,
+      timers: new Set(),
+    };
   }
-  if (globalForBots.__antstockBotsStarted) return;
-  const count = Number(process.env.BOT_COUNT ?? "100");
+  return globalForBots.__antstockBotState;
+}
 
-  console.log(`[bots] starting ${count} bots...`);
-  const bots = ensureBots(count);
-  globalForBots.__antstockBotsStarted = true;
+export function getBotStatus(): { running: boolean; count: number; speed: number } {
+  const s = getState();
+  return { running: s.running, count: s.count, speed: s.speed };
+}
 
+export function startBots(opts: { count?: number; speed?: number } = {}): void {
+  const state = getState();
+  if (state.running) stopBots();
+
+  state.count = opts.count ?? state.count ?? Number(process.env.BOT_COUNT ?? "100");
+  state.speed = Math.max(0.1, opts.speed ?? state.speed ?? 1);
+  state.running = true;
+
+  console.log(`[bots] starting ${state.count} bots (speed ×${state.speed})`);
+  const bots = ensureBots(state.count);
   for (const bot of bots) {
     scheduleBot(bot);
   }
-  console.log(`[bots] ${bots.length} bots scheduled (personalities mixed)`);
+  console.log(`[bots] ${bots.length} bots scheduled`);
+}
+
+export function stopBots(): void {
+  const state = getState();
+  state.running = false;
+  for (const timer of state.timers) {
+    clearTimeout(timer);
+  }
+  state.timers.clear();
+  console.log("[bots] stopped");
 }
 
 interface Bot {
@@ -65,8 +99,7 @@ interface Bot {
 }
 
 function personalityFor(botIdx: number): Personality {
-  // botIdx 기반 결정적 분포 (재시작해도 같은 봇이 같은 페르소나)
-  const r = (botIdx * 2654435761) >>> 0; // hash spread
+  const r = (botIdx * 2654435761) >>> 0;
   const bucket = r % 100;
   if (bucket < 30) return "momentum";
   if (bucket < 50) return "meanRevert";
@@ -155,11 +188,21 @@ function ensureBots(count: number): Bot[] {
 }
 
 function scheduleBot(bot: Bot): void {
+  const state = getState();
+  if (!state.running) return;
+
   const [min, max] = PERSONALITY_TICK[bot.personality];
-  const delay = randomBetween(min, max);
-  setTimeout(() => {
+  const speed = Math.max(0.1, state.speed);
+  const delay = Math.max(
+    MIN_TICK_MS,
+    Math.floor(randomBetween(min, max) / speed),
+  );
+
+  const t = setTimeout(() => {
+    state.timers.delete(t);
     tick(bot).finally(() => scheduleBot(bot));
   }, delay);
+  state.timers.add(t);
 }
 
 async function tick(bot: Bot): Promise<void> {
@@ -173,7 +216,7 @@ async function tick(bot: Bot): Promise<void> {
       side: decision.side,
     });
   } catch {
-    // 정상 거부(잔고 부족, 보유 부족, rate limit) 포함 — silent
+    // silent — rate limit, 잔고 부족, 보유 부족 등은 정상 거부
   }
 }
 
@@ -183,7 +226,6 @@ interface TickerSnap {
   tickerId: number;
   outstanding: number;
   price: number;
-  /** 라운드 시작 대비 변동율 (0이면 100원 그대로) */
   changePct: number;
 }
 
@@ -264,29 +306,18 @@ function decide(bot: Bot): Decision | null {
     .filter((h) => h.shares > 0);
 
   switch (bot.personality) {
-    case "momentum":
-      return decideMomentum(market, myHoldings, balance);
-    case "meanRevert":
-      return decideMeanRevert(market, myHoldings, balance);
-    case "whale":
-      return decideWhale(market, myHoldings, balance);
-    case "hodl":
-      return decideHodl(market, myHoldings, balance);
-    case "scalper":
-      return decideScalper(market, myHoldings, balance);
-    case "newbie":
-      return decideNewbie(market, myHoldings, balance);
+    case "momentum":   return decideMomentum(market, myHoldings, balance);
+    case "meanRevert": return decideMeanRevert(market, myHoldings, balance);
+    case "whale":      return decideWhale(market, myHoldings, balance);
+    case "hodl":       return decideHodl(market, myHoldings, balance);
+    case "scalper":    return decideScalper(market, myHoldings, balance);
+    case "newbie":     return decideNewbie(market, myHoldings, balance);
   }
 }
 
 type Holding = { tickerId: number; shares: number };
 
-function decideMomentum(
-  market: TickerSnap[],
-  holdings: Holding[],
-  balance: number,
-): Decision | null {
-  // 상승 추세 종목을 따라 매수, 하락 종목 보유 중이면 매도
+function decideMomentum(market: TickerSnap[], holdings: Holding[], balance: number): Decision | null {
   if (Math.random() < 0.2) return null;
   const ups = market.filter((m) => m.changePct > 0.05).sort((a, b) => b.changePct - a.changePct);
   const downs = market.filter((m) => m.changePct < -0.05);
@@ -297,7 +328,7 @@ function decideMomentum(
     return { tickerId: h.tickerId, side: "sell", shares: Math.min(h.shares, randInt(1, 3)) };
   }
   if (ups.length > 0) {
-    const target = ups[0]; // 가장 많이 오른 거
+    const target = ups[0];
     const shares = randInt(1, 4);
     if (canBuy(target, shares, balance)) {
       return { tickerId: target.tickerId, side: "buy", shares };
@@ -306,18 +337,11 @@ function decideMomentum(
   return null;
 }
 
-function decideMeanRevert(
-  market: TickerSnap[],
-  holdings: Holding[],
-  balance: number,
-): Decision | null {
-  // 떨어진 종목 매수, 많이 오른 종목(보유 중) 매도
+function decideMeanRevert(market: TickerSnap[], holdings: Holding[], balance: number): Decision | null {
   if (Math.random() < 0.2) return null;
   const cheap = market.filter((m) => m.changePct < 0).sort((a, b) => a.changePct - b.changePct);
   const overpriced = market.filter((m) => m.changePct > 0.3);
-  const heldOverpriced = holdings.filter((h) =>
-    overpriced.some((o) => o.tickerId === h.tickerId),
-  );
+  const heldOverpriced = holdings.filter((h) => overpriced.some((o) => o.tickerId === h.tickerId));
 
   if (heldOverpriced.length > 0 && Math.random() < 0.6) {
     const h = pick(heldOverpriced);
@@ -331,13 +355,8 @@ function decideMeanRevert(
   return null;
 }
 
-function decideWhale(
-  market: TickerSnap[],
-  holdings: Holding[],
-  balance: number,
-): Decision | null {
-  // 대량 거래. 살 때 10~30주, 팔 때도 보유의 절반~전량
-  if (Math.random() < 0.3) return null; // whale도 자주는 안 함
+function decideWhale(market: TickerSnap[], holdings: Holding[], balance: number): Decision | null {
+  if (Math.random() < 0.3) return null;
   if (holdings.length > 0 && Math.random() < 0.4) {
     const h = pick(holdings);
     const shares = Math.max(1, Math.floor(h.shares * (0.5 + Math.random() * 0.5)));
@@ -348,7 +367,6 @@ function decideWhale(
   if (canBuy(target, shares, balance)) {
     return { tickerId: target.tickerId, side: "buy", shares };
   }
-  // 자금 부족하면 더 적게라도
   const fallback = randInt(3, 8);
   if (canBuy(target, fallback, balance)) {
     return { tickerId: target.tickerId, side: "buy", shares: fallback };
@@ -356,12 +374,7 @@ function decideWhale(
   return null;
 }
 
-function decideHodl(
-  market: TickerSnap[],
-  holdings: Holding[],
-  balance: number,
-): Decision | null {
-  // 95% 그냥 가만히. 가끔 매수만.
+function decideHodl(market: TickerSnap[], holdings: Holding[], balance: number): Decision | null {
   if (Math.random() < 0.95) return null;
   const target = pick(market);
   const shares = randInt(1, 5);
@@ -371,12 +384,7 @@ function decideHodl(
   return null;
 }
 
-function decideScalper(
-  market: TickerSnap[],
-  holdings: Holding[],
-  balance: number,
-): Decision | null {
-  // 작게 자주. 한 종목 픽해서 1주 사고팔기 반복
+function decideScalper(market: TickerSnap[], holdings: Holding[], balance: number): Decision | null {
   if (Math.random() < 0.15) return null;
   const buy = holdings.length === 0 || Math.random() < 0.5;
   if (buy) {
@@ -391,16 +399,10 @@ function decideScalper(
   return null;
 }
 
-function decideNewbie(
-  market: TickerSnap[],
-  holdings: Holding[],
-  balance: number,
-): Decision | null {
-  // FOMO — 60% 매수 편향. 오른 종목 따라가는 경향도 있음.
+function decideNewbie(market: TickerSnap[], holdings: Holding[], balance: number): Decision | null {
   if (Math.random() < 0.2) return null;
   const wantBuy = Math.random() < 0.7 || holdings.length === 0;
   if (wantBuy) {
-    // 오른 종목에 80%, 무작위 20%
     const ups = market.filter((m) => m.changePct > 0);
     const target = (ups.length > 0 && Math.random() < 0.8) ? pick(ups) : pick(market);
     const shares = randInt(1, 5);
@@ -417,7 +419,6 @@ function decideNewbie(
 // ---- 헬퍼 ----
 
 function canBuy(t: TickerSnap, shares: number, balance: number): boolean {
-  // 본딩 커브 적분: cost = 100*N + 2*s*N + N²
   const cost = 100 * shares + 2 * t.outstanding * shares + shares * shares;
   return balance >= cost;
 }

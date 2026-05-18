@@ -3,6 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  adminBotRemove,
+  adminBotStart,
+  adminBotStop,
   adminLiquidate,
   adminRenameTicker,
   adminReset,
@@ -17,6 +20,7 @@ export function AdminActions({
   tickers,
   traders,
   currentAdminTraderId,
+  botStatus,
 }: {
   hasActiveWeek: boolean;
   tickers: { id: number; name: string }[];
@@ -28,6 +32,7 @@ export function AdminActions({
     currentBalance: number | null;
   }[];
   currentAdminTraderId: number;
+  botStatus: { running: boolean; count: number; speed: number };
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -84,6 +89,12 @@ export function AdminActions({
           </PrimaryBtn>
         </div>
       </Section>
+
+      <BotSection
+        botStatus={botStatus}
+        pending={pending}
+        run={run}
+      />
 
       <Section
         title="종목 관리"
@@ -157,6 +168,114 @@ export function AdminActions({
         </div>
       </Section>
     </>
+  );
+}
+
+function BotSection({
+  botStatus,
+  pending,
+  run,
+}: {
+  botStatus: { running: boolean; count: number; speed: number };
+  pending: boolean;
+  run: (fn: () => Promise<AdminActionResult>, confirm?: string) => void;
+}) {
+  const [count, setCount] = useState(
+    botStatus.count > 0 ? botStatus.count : 100,
+  );
+  const [speed, setSpeed] = useState(botStatus.speed > 0 ? botStatus.speed : 1);
+
+  return (
+    <Section
+      title="봇 시뮬레이터"
+      subtitle="가짜 트레이더 봇으로 시장 분위기 만들기. 6가지 페르소나 믹스."
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <div
+          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            botStatus.running
+              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+              : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+          }`}
+        >
+          {botStatus.running
+            ? `▶ 실행 중 · ${botStatus.count}명 · ×${botStatus.speed}`
+            : "■ 중지됨"}
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <label className="block">
+          <span className="block text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            수량
+          </span>
+          <input
+            type="number"
+            min={1}
+            max={1000}
+            value={count}
+            onChange={(e) => setCount(Number(e.target.value))}
+            className="mt-1 w-24 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm tabular-nums text-gray-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+          />
+        </label>
+        <label className="block">
+          <span className="block text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            속도 (×)
+          </span>
+          <input
+            type="number"
+            min={0.1}
+            max={100}
+            step={0.5}
+            value={speed}
+            onChange={(e) => setSpeed(Number(e.target.value))}
+            className="mt-1 w-24 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm tabular-nums text-gray-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+          />
+        </label>
+
+        <div className="flex flex-wrap gap-2">
+          <PrimaryBtn
+            disabled={pending}
+            onClick={() =>
+              run(
+                () => adminBotStart(count, speed),
+                botStatus.running
+                  ? `봇 ${count}명 / 속도 ×${speed}로 재시작합니다.`
+                  : `봇 ${count}명 / 속도 ×${speed}로 시작합니다.`,
+              )
+            }
+          >
+            {botStatus.running ? "🔄 재시작" : "▶ 시작"}
+          </PrimaryBtn>
+          {botStatus.running && (
+            <NeutralBtn
+              disabled={pending}
+              onClick={() =>
+                run(adminBotStop, "봇을 중지합니다. (트레이더 계정은 유지)")
+              }
+            >
+              ■ 중지
+            </NeutralBtn>
+          )}
+          <DangerBtn
+            disabled={pending}
+            onClick={() =>
+              run(
+                adminBotRemove,
+                "봇 트레이더 + 관련 거래/잔고 이력을 모두 삭제합니다. 진행할까요?",
+              )
+            }
+          >
+            🗑 전부 제거
+          </DangerBtn>
+        </div>
+      </div>
+
+      <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
+        속도 5배 이상에선 Scalper 봇이 rate limit(트레이더당 10초/15회)에 걸려 거래
+        일부 거부됨. 서버 재시작 시 환경변수 BOT_ENABLED 따름.
+      </p>
+    </Section>
   );
 }
 

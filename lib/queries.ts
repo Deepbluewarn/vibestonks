@@ -72,6 +72,7 @@ export interface AdminStats {
   totalOutstandingShares: number;
   poolBalance: number;
   cumulativeSubsidy: number;
+  botStatus: { running: boolean; count: number; speed: number };
 }
 
 export function getAdminStats(): AdminStats {
@@ -107,6 +108,10 @@ export function getAdminStats(): AdminStats {
     cumulativeSubsidy = liquidated - collected;
   }
 
+  // 봇 상태는 별도 모듈에서 가져옴. import 위치는 함수 안 — 모듈 순환 회피.
+  const { getBotStatus } = require("@/lib/bots/runner") as typeof import("@/lib/bots/runner");
+  const botStatus = getBotStatus();
+
   return {
     activeWeek: week ? { id: week.id, startedAt: week.startedAt.getTime() } : null,
     totalTraders,
@@ -115,6 +120,7 @@ export function getAdminStats(): AdminStats {
     totalOutstandingShares,
     poolBalance,
     cumulativeSubsidy,
+    botStatus,
   };
 }
 

@@ -1,8 +1,9 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { eq, inArray, like } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { startBots, stopBots } from "@/lib/bots/runner";
 import { db, schema } from "@/lib/db";
 import { hardReset, liquidate } from "@/lib/cycle";
 
@@ -95,6 +96,72 @@ export async function adminRenameTicker(
     return { ok: true, message: `이름 변경: ${name}` };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "변경 실패" };
+  }
+}
+
+export async function adminBotStart(
+  count: number,
+  speed: number,
+): Promise<AdminActionResult> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+  if (!Number.isFinite(count) || count < 0 || count > 1000) {
+    return { ok: false, error: "수량은 0~1000" };
+  }
+  if (!Number.isFinite(speed) || speed < 0.1 || speed > 100) {
+    return { ok: false, error: "속도는 0.1~100배" };
+  }
+  try {
+    startBots({ count, speed });
+    revalidatePath("/admin");
+    return {
+      ok: true,
+      message: `봇 ${count}명 시작 (속도 ×${speed})`,
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "시작 실패" };
+  }
+}
+
+export async function adminBotStop(): Promise<AdminActionResult> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+  try {
+    stopBots();
+    revalidatePath("/admin");
+    return { ok: true, message: "봇 중지" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "중지 실패" };
+  }
+}
+
+export async function adminBotRemove(): Promise<AdminActionResult> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+  try {
+    // 먼저 멈춰야 새로 안 만들어짐
+    stopBots();
+    const bots = db
+      .select({ id: schema.traders.id })
+      .from(schema.traders)
+      .where(like(schema.traders.sub, "bot:%"))
+      .all();
+    if (bots.length === 0) {
+      return { ok: true, message: "삭제할 봇 없음" };
+    }
+    const ids = bots.map((b) => b.id);
+    db.transaction((tx) => {
+      tx.delete(schema.trades).where(inArray(schema.trades.traderId, ids)).run();
+      tx.delete(schema.balanceEvents).where(inArray(schema.balanceEvents.traderId, ids)).run();
+      tx.delete(schema.holdings).where(inArray(schema.holdings.traderId, ids)).run();
+      tx.delete(schema.balances).where(inArray(schema.balances.traderId, ids)).run();
+      tx.delete(schema.traders).where(inArray(schema.traders.id, ids)).run();
+    });
+    revalidatePath("/admin");
+    revalidatePath("/dashboard");
+    return { ok: true, message: `봇 ${bots.length}명 + 관련 데이터 삭제` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "삭제 실패" };
   }
 }
 
