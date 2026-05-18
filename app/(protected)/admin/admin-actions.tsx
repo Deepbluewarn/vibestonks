@@ -8,6 +8,9 @@ import {
   adminBotStart,
   adminBotStop,
   adminFullWipe,
+  adminGiftPay,
+  adminGiftStart,
+  adminGiftStop,
   adminLiquidate,
   adminRenameTicker,
   adminReset,
@@ -23,6 +26,7 @@ export function AdminActions({
   traders,
   currentAdminTraderId,
   botStatus,
+  giftStatus,
 }: {
   hasActiveWeek: boolean;
   tickers: { id: number; name: string }[];
@@ -35,6 +39,13 @@ export function AdminActions({
   }[];
   currentAdminTraderId: number;
   botStatus: { running: boolean; count: number; speed: number };
+  giftStatus: {
+    running: boolean;
+    minIntervalSec: number;
+    maxIntervalSec: number;
+    minAmount: number;
+    maxAmount: number;
+  };
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -94,6 +105,13 @@ export function AdminActions({
 
       <BotSection
         botStatus={botStatus}
+        pending={pending}
+        run={run}
+      />
+
+      <GiftSection
+        giftStatus={giftStatus}
+        hasActiveWeek={hasActiveWeek}
         pending={pending}
         run={run}
       />
@@ -323,6 +341,158 @@ function BotSection({
         일부 거부됨. 서버 재시작 시 환경변수 BOT_ENABLED 따름.
       </p>
     </Section>
+  );
+}
+
+function GiftSection({
+  giftStatus,
+  hasActiveWeek,
+  pending,
+  run,
+}: {
+  giftStatus: {
+    running: boolean;
+    minIntervalSec: number;
+    maxIntervalSec: number;
+    minAmount: number;
+    maxAmount: number;
+  };
+  hasActiveWeek: boolean;
+  pending: boolean;
+  run: (fn: () => Promise<AdminActionResult>, confirm?: string) => void;
+}) {
+  const [minI, setMinI] = useState(giftStatus.minIntervalSec);
+  const [maxI, setMaxI] = useState(giftStatus.maxIntervalSec);
+  const [minA, setMinA] = useState(giftStatus.minAmount);
+  const [maxA, setMaxA] = useState(giftStatus.maxAmount);
+  const [oneShot, setOneShot] = useState(50);
+
+  return (
+    <Section
+      title="보너스 드롭"
+      subtitle="모든 활성 라운드 트레이더에게 소량 현금 지급. 변동성 마중물."
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <div
+          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            giftStatus.running
+              ? "bg-pink-50 text-pink-700 dark:bg-pink-950/50 dark:text-pink-300"
+              : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+          }`}
+        >
+          {giftStatus.running
+            ? `▶ 자동 드롭 · ${giftStatus.minIntervalSec}~${giftStatus.maxIntervalSec}s · ${giftStatus.minAmount}~${giftStatus.maxAmount}pt`
+            : "■ 자동 드롭 중지됨"}
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-3">
+        <div>
+          <p className="mb-1 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            자동 (랜덤 간격·금액)
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <RangeInput label="간격(초)" min={minI} max={maxI} setMin={setMinI} setMax={setMaxI} step={1} />
+            <RangeInput label="금액(pt)" min={minA} max={maxA} setMin={setMinA} setMax={setMaxA} step={1} />
+            <PrimaryBtn
+              disabled={pending}
+              onClick={() =>
+                run(() =>
+                  adminGiftStart({
+                    minIntervalSec: minI,
+                    maxIntervalSec: maxI,
+                    minAmount: minA,
+                    maxAmount: maxA,
+                  }),
+                )
+              }
+            >
+              {giftStatus.running ? "🔄 설정 적용" : "▶ 시작"}
+            </PrimaryBtn>
+            {giftStatus.running && (
+              <NeutralBtn disabled={pending} onClick={() => run(adminGiftStop)}>
+                ■ 중지
+              </NeutralBtn>
+            )}
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200 pt-3 dark:border-gray-800">
+          <p className="mb-1 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            수동 (지금 모두에게 지급)
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="block">
+              <span className="block text-[11px] text-gray-500 dark:text-gray-400">
+                금액(pt)
+              </span>
+              <input
+                type="number"
+                min={1}
+                max={100000}
+                value={oneShot}
+                onChange={(e) => setOneShot(Number(e.target.value))}
+                className="mt-1 w-28 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm tabular-nums text-gray-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+              />
+            </label>
+            <PrimaryBtn
+              disabled={pending || !hasActiveWeek || oneShot <= 0}
+              onClick={() =>
+                run(
+                  () => adminGiftPay(oneShot),
+                  `모든 활성 라운드 트레이더에게 +${oneShot}pt씩 지급합니다.`,
+                )
+              }
+            >
+              📤 모두에게 +{oneShot}pt
+            </PrimaryBtn>
+          </div>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function RangeInput({
+  label,
+  min,
+  max,
+  setMin,
+  setMax,
+  step,
+}: {
+  label: string;
+  min: number;
+  max: number;
+  setMin: (n: number) => void;
+  setMax: (n: number) => void;
+  step?: number;
+}) {
+  return (
+    <label className="block">
+      <span className="block text-[11px] text-gray-500 dark:text-gray-400">
+        {label}
+      </span>
+      <span className="mt-1 inline-flex items-center gap-1">
+        <input
+          type="number"
+          min={1}
+          step={step ?? 1}
+          value={min}
+          onChange={(e) => setMin(Number(e.target.value))}
+          className="w-20 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm tabular-nums text-gray-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+        />
+        <span className="text-xs text-gray-400">~</span>
+        <input
+          type="number"
+          min={min}
+          step={step ?? 1}
+          value={max}
+          onChange={(e) => setMax(Number(e.target.value))}
+          className="w-20 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm tabular-nums text-gray-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+        />
+      </span>
+    </label>
   );
 }
 

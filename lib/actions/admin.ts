@@ -4,6 +4,12 @@ import { eq, inArray, like } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { setBotSpeed, startBots, stopBots } from "@/lib/bots/runner";
+import {
+  payGiftNow,
+  startGifts,
+  stopGifts,
+  type GiftConfig,
+} from "@/lib/events-engine/gift-drops";
 import { db, schema } from "@/lib/db";
 import { hardReset, liquidate } from "@/lib/cycle";
 
@@ -149,6 +155,61 @@ export async function adminBotStop(): Promise<AdminActionResult> {
     return { ok: true, message: "봇 중지" };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "중지 실패" };
+  }
+}
+
+export async function adminGiftStart(
+  cfg: GiftConfig,
+): Promise<AdminActionResult> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+  try {
+    const minI = cfg.minIntervalSec ?? 60;
+    const maxI = cfg.maxIntervalSec ?? 600;
+    const minA = cfg.minAmount ?? 5;
+    const maxA = cfg.maxAmount ?? 50;
+    if (minI < 1 || maxI < minI) return { ok: false, error: "간격 입력 오류" };
+    if (minA < 1 || maxA < minA) return { ok: false, error: "금액 입력 오류" };
+    startGifts({
+      minIntervalSec: minI,
+      maxIntervalSec: maxI,
+      minAmount: minA,
+      maxAmount: maxA,
+    });
+    revalidatePath("/admin");
+    return {
+      ok: true,
+      message: `보너스 자동 드롭 시작 — ${minI}~${maxI}초, ${minA}~${maxA}pt`,
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "시작 실패" };
+  }
+}
+
+export async function adminGiftStop(): Promise<AdminActionResult> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+  stopGifts();
+  revalidatePath("/admin");
+  return { ok: true, message: "보너스 자동 드롭 중지" };
+}
+
+export async function adminGiftPay(amount: number): Promise<AdminActionResult> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 100000) {
+    return { ok: false, error: "금액은 1~100000pt" };
+  }
+  try {
+    const count = payGiftNow(Math.floor(amount));
+    revalidatePath("/admin");
+    revalidatePath("/dashboard");
+    if (count === 0) {
+      return { ok: false, error: "활성 라운드가 없거나 트레이더 0명" };
+    }
+    return { ok: true, message: `+${amount}pt × ${count}명에게 지급` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "지급 실패" };
   }
 }
 

@@ -73,6 +73,13 @@ export interface AdminStats {
   poolBalance: number;
   cumulativeSubsidy: number;
   botStatus: { running: boolean; count: number; speed: number };
+  giftStatus: {
+    running: boolean;
+    minIntervalSec: number;
+    maxIntervalSec: number;
+    minAmount: number;
+    maxAmount: number;
+  };
 }
 
 export function getAdminStats(): AdminStats {
@@ -108,9 +115,11 @@ export function getAdminStats(): AdminStats {
     cumulativeSubsidy = liquidated - collected;
   }
 
-  // 봇 상태는 별도 모듈에서 가져옴. import 위치는 함수 안 — 모듈 순환 회피.
+  // 상태는 별도 모듈에서 가져옴. import 위치는 함수 안 — 모듈 순환 회피.
   const { getBotStatus } = require("@/lib/bots/runner") as typeof import("@/lib/bots/runner");
   const botStatus = getBotStatus();
+  const { getGiftStatus } = require("@/lib/events-engine/gift-drops") as typeof import("@/lib/events-engine/gift-drops");
+  const giftStatus = getGiftStatus();
 
   return {
     activeWeek: week ? { id: week.id, startedAt: week.startedAt.getTime() } : null,
@@ -121,6 +130,7 @@ export function getAdminStats(): AdminStats {
     poolBalance,
     cumulativeSubsidy,
     botStatus,
+    giftStatus,
   };
 }
 
@@ -445,7 +455,14 @@ export function getTickerDetail(
 
 export interface BalanceHistoryEntry {
   id: number;
-  type: "buy" | "sell" | "liquidation" | "salary" | "init" | "round_reset";
+  type:
+    | "buy"
+    | "sell"
+    | "liquidation"
+    | "salary"
+    | "init"
+    | "round_reset"
+    | "gift";
   delta: number;
   balanceAfter: number;
   tickerName: string | null;
@@ -459,7 +476,8 @@ export type BalanceEventType =
   | "liquidation"
   | "salary"
   | "init"
-  | "round_reset";
+  | "round_reset"
+  | "gift";
 
 /**
  * 본인 잔고 변동 로그. 최신순. type 필터 가능 (지정하면 해당 타입들만).

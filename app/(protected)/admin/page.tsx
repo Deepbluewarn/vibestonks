@@ -70,6 +70,7 @@ export default async function AdminPage() {
         }))}
         currentAdminTraderId={session.user.traderId}
         botStatus={stats.botStatus}
+        giftStatus={stats.giftStatus}
       />
     </div>
   );

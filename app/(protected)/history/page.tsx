@@ -13,7 +13,7 @@ const PAGE_SIZE = 50;
 const FILTERS: { key: string; label: string; types: BalanceEventType[] }[] = [
   { key: "all", label: "전체", types: [] },
   { key: "trade", label: "매수/매도", types: ["buy", "sell"] },
-  { key: "salary", label: "월급", types: ["salary"] },
+  { key: "income", label: "주급/보너스", types: ["salary", "gift"] },
   { key: "round", label: "리셋/청산", types: ["round_reset", "liquidation", "init"] },
 ];
 
@@ -211,6 +211,12 @@ function describe(e: BalanceHistoryEntry): {
         label: `주급 (${weekLabel(e.occurredAt)})`,
         icon: "💰",
         bg: "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
+      };
+    case "gift":
+      return {
+        label: "보너스",
+        icon: "🎁",
+        bg: "bg-pink-50 text-pink-700 dark:bg-pink-950/50 dark:text-pink-300",
       };
     case "init":
       return {

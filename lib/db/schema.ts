@@ -108,7 +108,15 @@ export const balanceEvents = sqliteTable("balance_events", {
   delta: integer("delta").notNull(),
   balanceAfter: integer("balance_after").notNull(),
   type: text("type", {
-    enum: ["buy", "sell", "liquidation", "salary", "init", "round_reset"],
+    enum: [
+      "buy",
+      "sell",
+      "liquidation",
+      "salary",
+      "init",
+      "round_reset",
+      "gift",
+    ],
   }).notNull(),
   occurredAt: integer("occurred_at", { mode: "timestamp" })
     .notNull()
