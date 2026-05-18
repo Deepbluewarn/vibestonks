@@ -135,6 +135,34 @@ export async function adminBotStop(): Promise<AdminActionResult> {
   }
 }
 
+export async function adminFullWipe(): Promise<AdminActionResult> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+  try {
+    db.transaction((tx) => {
+      tx.delete(schema.trades).run();
+      tx.delete(schema.balanceEvents).run();
+      tx.delete(schema.holdings).run();
+      tx.delete(schema.balances).run();
+      tx.delete(schema.tickerStates).run();
+      tx.delete(schema.weeks).run();
+    });
+    revalidatePath("/admin");
+    revalidatePath("/dashboard");
+    revalidatePath("/history");
+    return {
+      ok: true,
+      message:
+        "전체 초기화 완료. 트레이더 계정·종목 목록만 남음. '🚀 새 라운드 시작' 누르세요.",
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "초기화 실패",
+    };
+  }
+}
+
 export async function adminBotRemove(): Promise<AdminActionResult> {
   const guard = await requireAdmin();
   if (!guard.ok) return guard;

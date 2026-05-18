@@ -6,6 +6,7 @@ import {
   adminBotRemove,
   adminBotStart,
   adminBotStop,
+  adminFullWipe,
   adminLiquidate,
   adminRenameTicker,
   adminReset,
@@ -167,7 +168,43 @@ export function AdminActions({
           </table>
         </div>
       </Section>
+
+      <DangerZone pending={pending} run={run} />
     </>
+  );
+}
+
+function DangerZone({
+  pending,
+  run,
+}: {
+  pending: boolean;
+  run: (fn: () => Promise<AdminActionResult>, confirm?: string) => void;
+}) {
+  return (
+    <section className="space-y-3 rounded-xl border border-rose-300 bg-rose-50/30 p-5 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/20 dark:shadow-none">
+      <div>
+        <h2 className="text-sm font-semibold text-rose-700 dark:text-rose-300">
+          위험 구역
+        </h2>
+        <p className="mt-0.5 text-xs text-rose-700/80 dark:text-rose-400/80">
+          되돌릴 수 없는 작업. 트레이더 계정(로그인 정보)과 종목 목록은 유지됨.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <DangerBtn
+          disabled={pending}
+          onClick={() =>
+            run(
+              adminFullWipe,
+              "⚠ 전체 초기화\n\n모든 라운드·거래·잔고·잔고변동 기록·보유·종목상태를 지웁니다.\n트레이더 계정과 종목 이름만 남아요.\n\n진짜 진행할까요?",
+            )
+          }
+        >
+          🧨 전체 초기화 (잔고·기록 전부)
+        </DangerBtn>
+      </div>
+    </section>
   );
 }
 
