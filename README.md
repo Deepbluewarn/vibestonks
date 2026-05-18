@@ -45,7 +45,7 @@ ANTSTOCK_DB_PATH=./.data/db.sqlite   # 선택, 기본값 동일
 
 ```bash
 npm run admin:grant                  # 전체 트레이더 목록 출력
-npm run admin:grant -- bluewarn      # 닉네임 매칭 → isAdmin 토글
+npm run admin:grant -- alice         # 닉네임 매칭 → isAdmin 토글
 npm run admin:grant -- google:1234   # sub 직접
 ```
 
