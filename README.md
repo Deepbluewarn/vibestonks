@@ -49,6 +49,19 @@ npm run admin:grant -- alice         # 닉네임 매칭 → isAdmin 토글
 npm run admin:grant -- google:1234   # sub 직접
 ```
 
+## 봇 시뮬레이터 (선택)
+
+사람 트래픽이 부족할 때 시장 분위기를 만들기 위한 NPC 봇.
+
+```env
+BOT_ENABLED=true      # 켜기. 기본 false
+BOT_COUNT=100         # 봇 수, 기본 100
+```
+
+6가지 페르소나 믹스 (Momentum 30% / MeanRevert 20% / Whale 5% / HODL 15% / Scalper 20% / Newbie 10%). Next.js 프로세스 안에서 동작, 실 사용자 SSE 화면에 자동 반영.
+
+봇 정리는 `traders` 테이블에서 `sub LIKE 'bot:%'` 행을 지우면 됨.
+
 ## 라운드 사이클 (수동 운영)
 
 자동 스케줄러는 아직 붙어 있지 않습니다. 운영자가 다음 명령을 직접 실행해서 사이클을 굴립니다.
