@@ -60,7 +60,12 @@ BOT_COUNT=100         # 봇 수, 기본 100
 
 6가지 페르소나 믹스 (Momentum 30% / MeanRevert 20% / Whale 5% / HODL 15% / Scalper 20% / Newbie 10%). Next.js 프로세스 안에서 동작, 실 사용자 SSE 화면에 자동 반영.
 
-봇 정리는 `traders` 테이블에서 `sub LIKE 'bot:%'` 행을 지우면 됨.
+봇 일괄 제거:
+
+```bash
+npm run bots:remove           # 미리보기 (지울 행 수만 출력)
+npm run bots:remove -- --yes  # 실제 삭제 (트랜잭션, FK 순서대로)
+```
 
 ## 라운드 사이클 (수동 운영)
 
