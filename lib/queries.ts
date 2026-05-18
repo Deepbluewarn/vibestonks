@@ -130,12 +130,14 @@ export interface PricePoint {
 /**
  * 그 주차의 가격 시계열 재구성. buy/sell 거래마다 step 시리즈, liquidation은 제외.
  *
- * 시간 범위는 활동 기준으로 동적으로 자름:
+ * 시간 범위는 활동 기준으로 자름:
  * - 거래 0건: 주차 시작 → 지금 (평평한 100 라인)
- * - 거래 1건 이상: 첫 거래 직전 → 지금
- *   "직전"은 활동 폭의 5% 또는 최소 1초 (어느 쪽이든 더 큰 쪽). 첫 거래 전 가격(100)을
- *   앵커로 박아서 가격 점프가 시각적으로 보이게 함. 라운드 초기 긴 무활동 구간은 잘려서
- *   차트가 활동에 집중함.
+ * - 거래 1건 이상: [첫 거래 직전 앵커] ~ [마지막 거래] 까지만
+ *   - 앵커는 활동 폭의 5% 또는 최소 1초 만큼 첫 거래보다 앞에. 가격 점프 시각화용.
+ *   - "지금"까지 라인을 연장하지 않음 — 마지막 거래 이후 무활동 구간이 차트를 차지하는
+ *     문제 방지. 마지막 점의 펄스가 "현재 상태" 역할.
+ *   - 차트 기간 토글의 1일/1주/... 모드에선 [now - range, now] 윈도우를 강제하므로
+ *     사용자가 명시적으로 "현재까지" 보고 싶을 땐 그 탭을 쓰면 됨.
  */
 export function getPriceHistory(
   weekId: number,
@@ -170,9 +172,9 @@ export function getPriceHistory(
   }
 
   const firstTradeT = buySellRows[0].executedAt.getTime();
-  const now = Date.now();
-  const activityRange = Math.max(0, now - firstTradeT);
-  const leftBuffer = Math.max(activityRange * 0.05, 1000);
+  const lastTradeT = buySellRows[buySellRows.length - 1].executedAt.getTime();
+  const activitySpan = Math.max(0, lastTradeT - firstTradeT);
+  const leftBuffer = Math.max(activitySpan * 0.05, 1000);
   const anchorT = Math.max(firstTradeT - leftBuffer, weekStartedAt.getTime());
 
   let outstanding = 0;
@@ -186,10 +188,6 @@ export function getPriceHistory(
       side: t.side as "buy" | "sell",
       shares: t.shares,
     });
-  }
-  const last = series[series.length - 1];
-  if (last.t < now) {
-    series.push({ t: now, price: last.price });
   }
   return series;
 }
