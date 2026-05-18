@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   adminBotRemove,
+  adminBotSpeed,
   adminBotStart,
   adminBotStop,
   adminFullWipe,
@@ -285,14 +286,23 @@ function BotSection({
             {botStatus.running ? "🔄 재시작" : "▶ 시작"}
           </PrimaryBtn>
           {botStatus.running && (
-            <NeutralBtn
-              disabled={pending}
-              onClick={() =>
-                run(adminBotStop, "봇을 중지합니다. (트레이더 계정은 유지)")
-              }
-            >
-              ■ 중지
-            </NeutralBtn>
+            <>
+              <NeutralBtn
+                disabled={pending || speed === botStatus.speed}
+                onClick={() => run(() => adminBotSpeed(speed))}
+                title="속도만 즉시 변경 (재시작 X — 점진적 적용)"
+              >
+                ⚡ 속도만 ×{speed}로
+              </NeutralBtn>
+              <NeutralBtn
+                disabled={pending}
+                onClick={() =>
+                  run(adminBotStop, "봇을 중지합니다. (트레이더 계정은 유지)")
+                }
+              >
+                ■ 중지
+              </NeutralBtn>
+            </>
           )}
           <DangerBtn
             disabled={pending}

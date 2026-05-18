@@ -3,7 +3,7 @@
 import { eq, inArray, like } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
-import { startBots, stopBots } from "@/lib/bots/runner";
+import { setBotSpeed, startBots, stopBots } from "@/lib/bots/runner";
 import { db, schema } from "@/lib/db";
 import { hardReset, liquidate } from "@/lib/cycle";
 
@@ -120,6 +120,23 @@ export async function adminBotStart(
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "시작 실패" };
+  }
+}
+
+export async function adminBotSpeed(
+  speed: number,
+): Promise<AdminActionResult> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+  if (!Number.isFinite(speed) || speed < 0.1 || speed > 100) {
+    return { ok: false, error: "속도는 0.1~100배" };
+  }
+  try {
+    setBotSpeed(speed);
+    revalidatePath("/admin");
+    return { ok: true, message: `봇 속도 ×${speed}로 변경 (점진적 적용)` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "속도 변경 실패" };
   }
 }
 

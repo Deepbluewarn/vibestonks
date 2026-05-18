@@ -83,6 +83,16 @@ export function startBots(opts: { count?: number; speed?: number } = {}): void {
   console.log(`[bots] ${bots.length} bots scheduled`);
 }
 
+/**
+ * 속도만 즉시 변경. 이미 잡힌 타이머는 그대로 진행되지만(최대 페르소나당 5분),
+ * 다음 scheduleBot 호출부터 새 속도 적용 → 점진적으로 모든 봇이 새 속도로 전환.
+ * 진행 중인 거래를 끊지 않고도 가속/감속이 가능.
+ */
+export function setBotSpeed(speed: number): void {
+  const state = getState();
+  state.speed = Math.max(0.1, speed);
+}
+
 export function stopBots(): void {
   const state = getState();
   state.running = false;
