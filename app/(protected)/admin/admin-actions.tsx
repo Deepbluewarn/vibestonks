@@ -370,7 +370,7 @@ function GiftSection({
   return (
     <Section
       title="보너스 드롭"
-      subtitle="모든 활성 라운드 트레이더에게 소량 현금 지급. 변동성 마중물."
+      subtitle="주급처럼 정기적으로 소액 지급해 유동성 보충. 1시간 ±15분 / 20~40pt 권장."
     >
       <div className="flex flex-wrap items-center gap-3">
         <div

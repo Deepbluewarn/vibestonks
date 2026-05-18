@@ -29,10 +29,10 @@ interface GiftState {
 
 const DEFAULTS: Omit<GiftState, "timer"> = {
   running: false,
-  minIntervalMs: 60_000, // 1분
-  maxIntervalMs: 600_000, // 10분
-  minAmount: 5,
-  maxAmount: 50,
+  minIntervalMs: 2_700_000, // 45분
+  maxIntervalMs: 4_500_000, // 75분 — 1시간 ±15분
+  minAmount: 20,
+  maxAmount: 40,
 };
 
 const globalForGifts = globalThis as unknown as {
